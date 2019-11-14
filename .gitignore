@@ -4,6 +4,8 @@
 
 # Session Data files
 .RData
+.RDS
+.DS_store
 
 # User-specific files
 .Ruserdata
@@ -34,3 +36,19 @@ vignettes/*.pdf
 # Temporary files created by R markdown
 *.utf8.md
 *.knit.md
+
+# knitr and R markdown default cache directories
+/*_cache/
+/cache/
+
+# Temporary files created by R markdown
+*.utf8.md
+*.knit.md
+*.html
+
+# Shiny token, see https://shiny.rstudio.com/articles/shinyapps.html
+rsconnect/
+
+irf/data/
+short_hold_bias/data/
+
