@@ -1,0 +1,575 @@
+---
+title: "Index Generation"
+author: "Andy Krause"
+date: "August 24, 2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+This script generates the index and series necessary to perform the comparisons between the three approaches.  It is the first script to be run. 
+
+## Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+```
+
+We begin by loading the necessary libraries.  All three of these are found on CRAN and should be installable via the `install.packages()` function.  
+
+```{r }
+  library(hpiR)
+  library(tidyverse)
+  library(mlr)
+```
+
+Next we load the seattle sales data from the `hpiR` package.
+
+```{r}
+  data(seattle_sales, package = 'hpiR')
+```
+
+### Build Data
+
+We now create two `hpiR` ready datasets from the base data (`seattle_sales`).
+
+1. The first is a hedonic data set, complete with relevant home characteristics and the sale date converted to a monthly integer (`trans_period`), with the first month as January 2010.  
+
+```{r}
+  hed_df <- hedCreateTrans(trans_df = seattle_sales,
+                           prop_id = 'pinx',
+                           trans_id = 'sale_id',
+                           price = 'sale_price',
+                           date = 'sale_date',
+                           periodicity = 'monthly')
+
+```
+
+An example of the data is shown below:
+
+```{r}
+  hed_df %>%
+    dplyr::slice(1) %>%
+    t() %>%
+    as.data.frame() %>%
+    setNames(., '') %>%
+    knitr::kable()
+
+```
+
+2) We then create a repeat sales transaction dataset from the same base data.  
+
+```{r}
+  rt_df <- rtCreateTrans(trans_df = seattle_sales,
+                         prop_id = 'pinx',
+                         trans_id = 'sale_id',
+                         price = 'sale_price',
+                         date = 'sale_date',
+                         periodicity = 'monthly',
+                         seq_only = TRUE,
+                         min_period_dist = 12)
+```
+
+An example repeat sale from this data is shown below
+
+```{r}
+  rt_df %>%
+    dplyr::slice(1) %>%
+    t() %>%
+    as.data.frame() %>%
+    setNames(., '') %>%
+    knitr::kable()
+```
+
+We create this data prior to testing any of the model approaches because it is shared by all models in one way or another. 
+
+### Set parameters
+
+Our final preparatory step is to set the global parameters to be used by all the model:
+
+* `max_period`: Maximum number of months to analyze
+* `train_period`: Beginning training period when estimating series.  The first index in the series is 25 months long.
+* `ind_var`: The independent variables to use in the hedonic and random forest models. 
+* `ntrees`: The number of trees to grow in each random forest model
+* `sim_count`: The number of properties to simulate in the random forest partial dependence plots
+
+```{r}
+
+ max_period <- 84
+ train_period <- 24
+ ind_var = c('use_type', 'bldg_grade', 'lot_sf', 'tot_sf', 'beds', 
+                                      'baths', 'latitude', 'longitude')
+ ntrees = 500
+ sim_count = 500
+
+```
+
+## Global Analysis
+
+### Repeat Sales
+
+We begin by analyzing the repeat sales modeling approach.  
+
+First we create an index across the entire 84 month period.  We use a robust estimator and log the dependent variable (the difference in price between the two sales).
+
+```{r}
+  rt_hpi <- rtIndex(trans_df = rt_df,
+                    estimator = 'robust',
+                    log_dep = TRUE,
+                    trim_model = FALSE,
+                    max_period = max_period)
+```
+
+Next, we calculate the volatility of the index.
+
+```{r}
+  rt_hpi <- calcVolatility(index = rt_hpi,
+                           window = 3,
+                           in_place = TRUE)
+```
+
+We then calculate the in-sample accuracy
+
+```{r}
+rt_hpi <- calcAccuracy(hpi_obj = rt_hpi,
+                         test_method = 'insample',
+                         test_type = 'rt',
+                         in_place = TRUE,
+                         in_place_name = 'is_accuracy')
+```
+
+and the k-fold accuracy of the index. 
+
+```{r}
+rt_hpi <- calcAccuracy(hpi_obj = rt_hpi,
+                         test_method = 'kfold',
+                         test_type = 'rt',
+                         in_place = TRUE,
+                         in_place_name = 'kf_accuracy')
+```
+
+We then create a series of indexes, starting with an index from periods 1 to 25, then one from 1 to 26, etc. assuming we only had the data at period 25, etc. 
+
+```{r}
+    rt_series <- createSeries(hpi_obj = rt_hpi,
+                              train_period = train_period,
+                              max_period = max_period,
+                              smooth = TRUE)
+
+```
+
+From this, we then calculate the volatilities for each index in the series
+
+```{r}
+rt_series <- calcSeriesVolatility(series_obj = rt_series,
+                                    window = 3,
+                                    smooth = FALSE,
+                                    in_place = TRUE,
+                                    in_place_name = 'volatility')
+
+```
+
+From the series, we next calculate the average revision for each period and then average over all periods
+
+```{r}
+rt_series <- calcRevision(series_obj = rt_series,
+                            in_place = TRUE,
+                            in_place_name = 'revision')
+
+```
+
+Finally, we calculate the prediction accuracy of the index by predicting one period ahead and validating against known repeat sales. 
+
+```{r}
+  rt_series <- calcSeriesAccuracy(series_obj = rt_series,
+                                  test_method = 'forecast',
+                                  test_type = 'rt',
+                                  smooth = FALSE,
+                                  in_place = TRUE,
+                                  in_place_name = 'pr_accuracy')
+```
+
+We then save the key data from the index and series for later comparison and analysis.
+
+```{r}
+   
+  saveRDS(rt_df, file = file.path(getwd(), '/data/rt_df.RDS'))
+  saveRDS(rt_hpi[c('index')], file = file.path(getwd(), '/data/rt_hpi.RDS'))
+  saveRDS(rt_series[c('revision', 'pr_accuracy')], file = file.path(getwd(), '/data/rt_series.RDS'))
+
+  
+```
+
+### Hedonic
+
+Next, we run through the same progression of analyses with the hedonic modeling approach
+
+```{r}
+
+  he_hpi <- hedIndex(trans_df = hed_df,
+                     estimator = 'robust',
+                     log_dep = TRUE,
+                     dep_var = 'price',
+                     ind_var = ind_var,
+                     trim_model = FALSE,
+                     max_period = max_period,
+                     smooth = TRUE)
+
+
+  he_hpi <- calcVolatility(index = he_hpi,
+                           window = 3,
+                           in_place = TRUE)
+
+  he_hpi <- calcAccuracy(hpi_obj = he_hpi,
+                         test_method = 'insample',
+                         test_type = 'rt',
+                         pred_df = rt_df,
+                         in_place = TRUE,
+                         in_place_name = 'is_accuracy')
+  
+  he_hpi <- calcAccuracy(hpi_obj = he_hpi,
+                         test_method = 'kfold',
+                         test_type = 'rt',
+                         pred_df = rt_df,
+                         in_place = TRUE,
+                         in_place_name = 'kf_accuracy')
+  
+  he_series <- createSeries(hpi_obj = he_hpi,
+                                             train_period = train_period,
+                                             max_period = max_period,
+                                             smooth = TRUE)
+
+  he_series <- calcSeriesVolatility(series_obj = he_series,
+                                    window = 3,
+                                    smooth = FALSE,
+                                    in_place = TRUE,
+                                    in_place_name = 'volatility')
+ 
+  he_series <- calcRevision(series_obj = he_series,
+                            in_place = TRUE,
+                            in_place_name = 'revision')
+  
+   he_series <- calcSeriesAccuracy(series_obj = he_series,
+                                  test_method = 'forecast',
+                                  test_type = 'rt',
+                                  pred_df = rt_df,
+                                  smooth = FALSE,
+                                  in_place = TRUE,
+                                  in_place_name = 'pr_accuracy')
+
+  saveRDS(hed_df, file = file.path(getwd(), '/data/he_df.RDS'))
+  saveRDS(he_hpi[c('index')], file = file.path(getwd(), '/data/he_hpi.RDS'))
+  saveRDS(he_series[c('revision', 'pr_accuracy')], file = file.path(getwd(), '/data/he_series.RDS'))
+
+```
+
+### Random Forest
+
+Finally, we run through the same progression of analyses with the random forest approach
+
+```{r}
+
+  rf_hpi <- rfIndex(trans_df = hed_df,
+                     estimator = 'pdp',
+                     dep_var = 'price',
+                     ind_var = ind_var,
+                     max_period = max_period,
+                     smooth = FALSE,
+                     ntrees = 500,
+                     sim_ids = 1:nrow(hed_df))
+
+  rf_hpi <- calcVolatility(index = rf_hpi,
+                           window = 3,
+                           in_place = TRUE)
+
+  rf_hpi <- calcAccuracy(hpi_obj = rf_hpi,
+                         test_method = 'insample',
+                         test_type = 'rt',
+                         pred_df = rt_df,
+                         in_place = TRUE,
+                         in_place_name = 'is_accuracy')
+  
+  rf_hpi <- calcAccuracy(hpi_obj = rf_hpi,
+                         test_method = 'kfold',
+                         test_type = 'rt',
+                         pred_df = rt_df,
+                         in_place = TRUE,
+                         in_place_name = 'kf_accuracy')
+  
+  rf_series <- createSeries(hpi_obj = rf_hpi,
+                                              train_period = train_period,
+                                              max_period = max_period,
+                                              ntrees = 500,
+                                              sim_per = 1)
+
+  rf_series <- calcSeriesVolatility(series_obj = rf_series,
+                                   window = 3,
+                                     smooth = FALSE,
+                                     in_place = TRUE,
+                                     in_place_name = 'volatility')
+ 
+  rf_series <- calcRevision(series_obj = rf_series,
+                             in_place = TRUE,
+                             in_place_name = 'revision')
+  
+   rf_series <- calcSeriesAccuracy(series_obj = rf_series,
+                                   test_method = 'forecast',
+                                   test_type = 'rt',
+                                   pred_df = rt_df,
+                                   smooth = FALSE,
+                                   in_place = TRUE,
+                                   in_place_name = 'pr_accuracy')
+   
+  saveRDS(rf_hpi[c('index')], file = file.path(getwd(), '/data/rf_hpi.RDS'))
+  saveRDS(rf_series[c('revision', 'pr_accuracy')], file = file.path(getwd(), '/data/rf_series.RDS'))
+
+```
+
+### Smaller geographic scales
+
+Next we turn to testing the same three approaches on much smaller geographic areas -- King County Assessor Zones. 
+
+Before we estimate all three models at the smaller geographic level, we turn the above process -- index, volatility, in-sample error, k-fold error, series, prediction error and revision calculation into a custom function that can be mapped across all the subsets of data.
+
+```{r}
+
+modelComparison <- function(data_obj,
+                            periodicity = 'monthly',
+                            train_period = 24,
+                            max_period = 84,
+                            ntrees = 500,
+                            sim_per = 1,
+                            ind_var = c('use_type', 'bldg_grade', 'lot_sf', 'tot_sf', 'beds', 
+                                        'baths', 'latitude', 'longitude'),
+                            ...){
+  
+
+  message('****************Building Data')
+
+  # Hedonic Data
+  hed_df <- hedCreateTrans(trans_df = data_obj,
+                           prop_id = 'pinx',
+                           trans_id = 'sale_id',
+                           price = 'sale_price',
+                           date = 'sale_date',
+                           periodicity = periodicity)
+
+  # Repeat Transaction Data
+  rt_df <- rtCreateTrans(trans_df = data_obj,
+                         prop_id = 'pinx',
+                         trans_id = 'sale_id',
+                         price = 'sale_price',
+                         date = 'sale_date',
+                         periodicity = periodicity,
+                         min_period_dist = 12)
+
+  sim_ids <- 1:nrow(hed_df)
+
+  message('Building Indexes')
+
+  ## Repeat Transaction Example
+  rt_hpi <- rtIndex(trans_df = rt_df,
+                    estimator = 'robust',
+                    log_dep = TRUE,
+                    trim_model = FALSE,
+                    max_period = max_period,
+                    lm_recover = TRUE)
+
+  ## Hedonic sales Example
+  he_hpi <- hedIndex(trans_df = hed_df,
+                     estimator = 'robust',
+                     log_dep = TRUE,
+                     dep_var = 'price',
+                     ind_var = ind_var,
+                     trim_model = FALSE,
+                     max_period = max_period)
+
+  # Random Forest
+  rf_hpi <- rfIndex(trans_df = hed_df,
+                     estimator = 'pdp',
+                     dep_var = 'price',
+                     ind_var = ind_var,
+                     max_period = max_period,
+                     smooth = FALSE,
+                     ntrees = ntrees,
+                     sim_ids = sim_ids)
+
+  message('Comparing Index Volatilities')
+  ## Volatility
+
+  rt_hpi <- calcVolatility(index = rt_hpi,
+                           window = 3,
+                           in_place = TRUE)
+  he_hpi <- calcVolatility(index = he_hpi,
+                           window = 3,
+                           in_place = TRUE)
+  rf_hpi <- calcVolatility(index = rf_hpi,
+                            window = 3,
+                            in_place = TRUE)
+
+
+  message('Comparing In-Sample Accuracy')
+  ## In sample accuracy
+  rt_hpi <- calcAccuracy(hpi_obj = rt_hpi,
+                         test_method = 'insample',
+                         test_type = 'rt',
+                         in_place = TRUE,
+                         in_place_name = 'is_accuracy')
+  he_hpi <- calcAccuracy(hpi_obj = he_hpi,
+                         test_method = 'insample',
+                         test_type = 'rt',
+                         pred_df = rt_df,
+                         in_place = TRUE,
+                         in_place_name = 'is_accuracy')
+  rf_hpi <- calcAccuracy(hpi_obj = rf_hpi,
+                          test_method = 'insample',
+                          test_type = 'rt',
+                          pred_df = rt_df,
+                          in_place = TRUE,
+                          in_place_name = 'is_accuracy')
+
+
+  message('Comparing Out-of-Sample (KFold) Accuracy')
+
+  ## Out of sample K Fold accuracy
+  rt_hpi <- calcAccuracy(hpi_obj = rt_hpi,
+                         test_method = 'kfold',
+                         test_type = 'rt',
+                         in_place = TRUE,
+                         in_place_name = 'kf_accuracy',
+                         lm_recover = TRUE)
+  he_hpi <- calcAccuracy(hpi_obj = he_hpi,
+                         test_method = 'kfold',
+                         test_type = 'rt',
+                         pred_df = rt_df,
+                         in_place = TRUE,
+                         in_place_name = 'kf_accuracy')
+  rf_hpi <- calcAccuracy(hpi_obj = rf_hpi,
+                          test_method = 'kfold',
+                          test_type = 'rt',
+                          pred_df = rt_df,
+                          in_place = TRUE,
+                          in_place_name = 'kf_accuracy',
+                          ntrees = ntrees,
+                          sim_per = 1)
+
+  message('Creating Series')
+
+  ## Series
+  suppressWarnings(
+    rt_series <- createSeries(hpi_obj = rt_hpi,
+                              train_period = train_period,
+                              max_period = max_period,
+                              smooth = FALSE,
+                              lm_recover = TRUE)) 
+
+  suppressWarnings(he_series <- createSeries(hpi_obj = he_hpi,
+                                             train_period = train_period,
+                                             max_period = max_period,
+                                             smooth = FALSE))  
+                   
+  suppressWarnings(rf_series <- createSeries(hpi_obj = rf_hpi,
+                                              train_period = train_period,
+                                              max_period = max_period,
+                                              ntrees = ntrees,
+                                              sim_per = 1))
+
+  message('Comparing Series Volatilities')
+
+  # Series Volatility
+  rt_series <- calcSeriesVolatility(series_obj = rt_series,
+                                    window = 3,
+                                    smooth = FALSE,
+                                    in_place = TRUE,
+                                    in_place_name = 'volatility')
+
+  he_series <- calcSeriesVolatility(series_obj = he_series,
+                                    window = 3,
+                                    smooth = FALSE,
+                                    in_place = TRUE,
+                                    in_place_name = 'volatility')
+
+  rf_series <- calcSeriesVolatility(series_obj = rf_series,
+                                     window = 3,
+                                     smooth = FALSE,
+                                     in_place = TRUE,
+                                     in_place_name = 'volatility')
+
+  message('Calculating Revisions')
+
+  ## Revision
+  rt_series <- calcRevision(series_obj = rt_series,
+                            in_place = TRUE,
+                            in_place_name = 'revision')
+  he_series <- calcRevision(series_obj = he_series,
+                            in_place = TRUE,
+                            in_place_name = 'revision')
+  rf_series <- calcRevision(series_obj = rf_series,
+                             in_place = TRUE,
+                             in_place_name = 'revision')
+
+  message('Comparing Out-of-Sample (Prediction) Accuracy')
+
+  ## Prediction accuracy
+  rt_series <- calcSeriesAccuracy(series_obj = rt_series,
+                                  test_method = 'forecast',
+                                  test_type = 'rt',
+                                  smooth = FALSE,
+                                  in_place = TRUE,
+                                  in_place_name = 'pr_accuracy')
+  he_series <- calcSeriesAccuracy(series_obj = he_series,
+                                  test_method = 'forecast',
+                                  test_type = 'rt',
+                                  pred_df = rt_df,
+                                  smooth = FALSE,
+                                  in_place = TRUE,
+                                  in_place_name = 'pr_accuracy')
+  rf_series <- calcSeriesAccuracy(series_obj = rf_series,
+                                   test_method = 'forecast',
+                                   test_type = 'rt',
+                                   pred_df = rt_df,
+                                   smooth = FALSE,
+                                   in_place = TRUE,
+                                   in_place_name = 'pr_accuracy')
+
+
+  
+  list(rt_hpi = rt_hpi['index'],
+       he_hpi = he_hpi['index'],
+       rf_hpi = rf_hpi['index'],
+       rt_series = rt_series[c('revision', 'pr_accuracy')],
+       he_series = he_series[c('revision', 'pr_accuracy')],
+       rf_series = rf_series[c('revision', 'pr_accuracy')],
+       summary = NULL)
+}
+
+
+
+
+
+
+```
+
+We start by dividing the data into assessment areas, first removing areas 23 as it does not have enought single family and townhome sales to effectively model.  
+
+```{r}
+
+  geo_df <- seattle_sales %>% dplyr::filter(!area %in% 23)
+  geo_ <- split(geo_df, geo_df$area)
+
+```
+
+We then apply the function we built above to each geographic area's data.  This function estimates all three models (indexes and series) and save the results in a large list. 
+
+```{r}
+  geo_results <- purrr::map(geo_,
+                            .f = modelComparison)
+```
+
+We then save these results for later analysis as well.
+
+```{r}
+    saveRDS(geo_results, file = file.path(getwd(), '/data/geo_results.RDS'))
+```
+
+Further analysis and comparison can be found in the `full_comparison.rmd` script. 
