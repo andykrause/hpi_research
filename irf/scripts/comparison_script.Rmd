@@ -1,11 +1,13 @@
 ---
-title: "Index Comparison Analysis"
+title: "IRF Paper: Comparative Analysis"
 author: "Andy Krause"
 date: "August 24, 2019"
 output: html_document
 editor_options: 
   chunk_output_type: console
 ---
+
+This script should be run only after executing the "IRF: Index Generation" script (*irf_index_generation.rmd*) first as it uses those output as inputs. 
 
 ## Setup
 
@@ -20,50 +22,98 @@ We begin by loading the necessary libraries.  All three of these are found on CR
 ```{r }
   library(hpiR)
   library(tidyverse)
+  library(ggplot2)
+```
+
+Next we load the pre-computed data, index and series objects from `/index_generation_script.rmd`. 
+
+```{r}
+  rt_df <- readRDS(file = file.path(getwd(), '../data/rt_df.RDS'))
+  he_df <- readRDS(file = file.path(getwd(), '../data/he_df.RDS'))
+
+  rt_hpi <- readRDS(file = file.path(getwd(), '../data/rt_hpi.RDS'))
+  rt_series <- readRDS(file = file.path(getwd(), '../data/rt_series.RDS'))
+
+  hed_hpi <- readRDS(file = file.path(getwd(), '../data/he_hpi.RDS'))
+  hed_series <- readRDS(file = file.path(getwd(), '../data/he_series.RDS'))
+
+  rf_hpi <- readRDS(file = file.path(getwd(), '../data/rf_hpi.RDS'))
+  rf_series <- readRDS(file = file.path(getwd(), '../data/rf_series.RDS'))
+  
+  geo_results <- readRDS(file = file.path(getwd(), '../data/geo_results.RDS'))
 ```
 
 ## Example
 
-```{r}
+We create an example dataset in order to visualize what the ICE and PD analyses look like.  
 
-  data(seattle_sales)
-  ex_df <- seattle_sales %>% dplyr::filter(sale_date >= as.Date('2013-01-01') & 
-                                             area == 44)
+First we load the raw Seattle data.  We only need a small portion of it (sales from area 44 from 2013 onwards)
+
+```{r}
+  data(seattle_sales, package = 'hpiR')
+  ex_df <- seattle_sales %>% 
+    dplyr::filter(sale_date >= as.Date('2013-01-01') & 
+                  area == 44)
+```
+
+We then convert this data into a hedonic dataset for use in the `hpiR` package. We use monthly periodicity.  
+
+```{r}
   exhed_df <- hedCreateTrans(trans_df = ex_df,
                              prop_id = 'pinx',
                              trans_id = 'sale_id',
                              price = 'sale_price',
                              date = 'sale_date',
                              periodicity = 'monthly')
-  
+```
+
+We specify the random forest model and estimate it, using the `ranger` package. 
+
+```{r}
   rf_spec <- formula(log(price) ~ tot_sf + baths + beds + age + latitude + longitude + trans_period)
   
   rf_model <- ranger::ranger(rf_spec,
                              data = exhed_df,
                              num.tree = 500,
                              seed = 1)
-  # Get Simulation DF
+```
+
+Using this trained model, we then calculate the Individual Conditional Expectation for all observations in the training data. 
+
+```{r}
+
   sim_df <- rfSimDf(rf_df = exhed_df,
                     seed = seed)
 
-  # Get simulation observations
+  iceall_df <- vector('list', nrow(sim_df))
+  
+  for (k in 1:nrow(sim_df)){
+    iceall_df[[k]] <- 
+      pdp::partial(object = rf_model,
+                   train = sim_df[k, ],
+                   pred.var = "trans_period",
+                   pred.grid = data.frame(trans_period = 1:max(exhed_df$trans_period))) %>% 
+      dplyr::mutate(obs = k)
+  }
+
+```
+  
+Using the same trained model, we then extract the partial dependency.   
+  
+```{r}
   pd_df <- pdp::partial(object = rf_model,
                         train = sim_df,
                         pred.var = "trans_period",
                         pred.grid = data.frame(trans_period = 1:max(exhed_df$trans_period)))
 
-  iceall_df <- vector('list', nrow(sim_df))
-  
-  for (k in 1:nrow(sim_df)){
-    iceall_df[[k]] <- pdp::partial(object = rf_model,
-                                   train = sim_df[k, ],
-                                   pred.var = "trans_period",
-                                   pred.grid = data.frame(trans_period = 1:max(
-                                     exhed_df$trans_period))) %>% 
-      dplyr::mutate(obs = k)
-  }
-  
-  iceall_df <- iceall_df %>% dplyr::bind_rows(., pd_df %>% dplyr::mutate(obs = 0))
+```
+
+We collapse the ICEs and the PD into a single data.frame.
+
+```{r}
+  iceall_df <- iceall_df %>% 
+    dplyr::bind_rows(., pd_df %>% 
+                       dplyr::mutate(obs = 0))
 
   explot_df <- iceall_df %>%
     dplyr::mutate(price = exp(yhat)) %>%
@@ -71,7 +121,9 @@ We begin by loading the necessary libraries.  All three of these are found on CR
 
 ```
 
-```{r, eval = FALSE}
+A plot showing the ICEs and the PD:
+
+```{r}
   ggplot(explot_df,
          aes(x = time, y = price, group = obs)) + 
   geom_line(alpha = .3) + 
@@ -82,51 +134,63 @@ We begin by loading the necessary libraries.  All three of these are found on CR
 
 ```
 
+## Indexes
+
+We start by extracting the global indexes from the pre-computed objects. 
+
 ```{r}
 
- index_gdf <- dplyr::bind_rows(data.frame(Model = 'RepeatTrans', 
+ index_gdf <- dplyr::bind_rows(data.frame(Model = 'Repeat Sales', 
                                           index = rt_hpi$index$value, 
                                           time = 1:84),
                               data.frame(Model = 'Hedonic', 
                                          index = hed_hpi$index$value, 
                                          time = 1:84),
-                              data.frame(Model = 'RandomForest', 
+                              data.frame(Model = 'IRF', 
                                          index = rf_hpi$index$value, 
                                          time = 1:84)) %>%
   dplyr::mutate(Model = forcats::fct_relevel(as.factor(Model), 
-                                             c('RepeatTrans', 'Hedonic', 'RandomForest')))
+                                             c('Repeat Sales', 'Hedonic', 'IRF')))
 ```
 
+To prepare the global indexes to be added to the local indexes, we add an area number to it (0)
 
 ```{r}
-
-  results_ <- list(explot = explot_df,
-                   index = index_gdf)
-  saveRDS(results_, '../data/results_.RDS')
-  
+  index_gdf <- index_gdf %>% 
+    dplyr::mutate(region = 0,
+                  Model = forcats::fct_relevel(as.factor(index_gdf$Model), 
+                                             c('Repeat Sales', 'Hedonic', 'IRF')))
 ```
 
-Next we load the pre-computed data, index and series objects from `/index_generation_script.rmd`. 
+We then extract all of the local indexes.
 
 ```{r}
-  rt_df <- readRDS(file = file.path(getwd(), '/data/rt_df.RDS'))
-  he_df <- readRDS(file = file.path(getwd(), '/data/he_df.RDS'))
-
-  rt_hpi <- readRDS(file = file.path(getwd(), '/data/rt_hpi.RDS'))
-  rt_series <- readRDS(file = file.path(getwd(), '/data/rt_series.RDS'))
-
-  hed_hpi <- readRDS(file = file.path(getwd(), '/data/he_hpi.RDS'))
-  hed_series <- readRDS(file = file.path(getwd(), '/data/he_series.RDS'))
-
-  rf_hpi <- readRDS(file = file.path(getwd(), '/data/rf_hpi.RDS'))
-  rf_series <- readRDS(file = file.path(getwd(), '/data/rf_series.RDS'))
-  
-  geo_results <- readRDS(file = file.path(getwd(), '/data/geo_results.RDS'))
+  index_ldf <- purrr::map2(.x = geo_results,
+                           .y = names(geo_results),
+                           .f = function(x, y){
+                         
+                       dplyr::bind_rows(data.frame(Model = 'Repeat Sales',
+                                                   region = y,
+                                                   index = x$rt_hpi$index$value,
+                                                   time = 1:84),
+                                        data.frame(Model = 'Hedonic',
+                                                   region = y,
+                                                   index = x$he_hpi$index$value,
+                                                   time = 1:84),
+                                        data.frame(Model = 'IRF',
+                                                   region = y,
+                                                   index = x$rf_hpi$index$value,
+                                                   time = 1:84))}) %>%
+  dplyr::bind_rows() %>%
+  dplyr::mutate(Model = forcats::fct_relevel(as.factor(Model), 
+                                             c('Repeat Sales', 'Hedonic', 'IRF')))
 ```
 
 ## Accuracy
 
 We begin by assembling all of the accuracy data into a single data.frame, first for the global models, then for the local ones. 
+
+To the global data we then add information on the model, accr, pred_price and individual error values. 
 
 ```{r glob_accr_data}
 accr_gdf <- 
@@ -169,6 +233,10 @@ Next, we create summary and print data.frame from this data
   
 ```
 
+We then do the same for the local models.  One set of extractions for the k-fold results and one for the prediction results. 
+
+K-fold
+
 ```{r loc_accr_data}
 
 kfaccr_df <- purrr::map2(.x = geo_results,
@@ -188,7 +256,11 @@ kfaccr_df <- purrr::map2(.x = geo_results,
                           dplyr::bind_rows(rt, he, rf)
                         }) %>%
   dplyr::bind_rows(.)
+```
 
+Prediction
+
+```{r}
 praccr_df <- purrr::map2(.x = geo_results,
                        .y = names(geo_results),
                        .f = function(x,y){
@@ -206,13 +278,18 @@ praccr_df <- purrr::map2(.x = geo_results,
                           dplyr::bind_rows(rt, he, rf)
                         }) %>%
   dplyr::bind_rows(.)
+```
 
+We then combine these into the local accuracy results
+
+```{r}
  accr_ldf <- dplyr::bind_rows(kfaccr_df %>% dplyr::mutate(accr = 'kf'),
                               praccr_df %>% dplyr::mutate(accr = 'pr')) %>%
   dplyr::left_join(., rt_df, by = 'pair_id')
 
 ```
 
+A summary and a printable data.frame are built.
 
 ```{r}
 
@@ -233,6 +310,240 @@ praccr_df <- purrr::map2(.x = geo_results,
   knitr::kable(laccr_pdf[c(3,1,2), ])
   
 ```
+
+## Volatility
+
+We being by extracting the global volatility numbers
+
+```{r}
+vol_gdf <- data.frame(model = c('rt', 'hed', 'rf'),
+                      mean_volatility = c(rt_hpi$index$volatility$mean,
+                                            hed_hpi$index$volatility$mean,
+                                            rf_hpi$index$volatility$mean))
+  knitr::kable(vol_gdf %>% dplyr::mutate(Model = c('RepeatTrans', 'Hedonic', 'RandomForest'),
+                                         Volatility = round(mean_volatility, 4)) %>%
+                 dplyr::select(Model, Volatility))
+  
+```
+
+To aid the plot, we create an annotation layer
+
+```{r}
+  ganno_df <- data.frame(Model = c('Repeat Sales', 'Hedonic', 'IRF'),
+                        xpos = 73, ypos = 105,
+                        lab = paste0('Vol: ', round(vol_gdf$mean_volatility, 3))) %>%
+  dplyr::mutate(Model = forcats::fct_relevel(as.factor(Model), 
+                                             c('Repeat Sales', 'Hedonic', 'IRF')))
+```
+
+Plot comparing indexes and volatilities
+
+```{r}
+  gindex_plot <- ggplot(index_gdf, aes(x = time, y = index, group = Model)) + 
+    geom_line(color = 'black', size = 1) + 
+    geom_text(data = ganno_df, aes(x = xpos,  y = ypos, label = lab), color = 'black') + 
+    facet_wrap(~Model) + 
+    scale_x_continuous(breaks = c(1,25,49,73), labels = c(2010, 2012, 2014, 2016)) +
+    xlab("") + 
+    ylab('Index Value\n')+
+    theme(legend.position="none",
+          plot.title = element_text(hjust = 0.5))
+
+  gindex_plot
+```
+
+We then extract the local volatilities.
+
+```{r}
+vol_ldf <- purrr::map2(.x = geo_results,
+                    .y = names(geo_results),
+                    .f = function(x, y){
+                        
+                     data.frame(model = c('rt', 'he', 'rf'),
+                                region = y,
+                                volatility = c(x$rt_hpi$index$volatility$mean,
+                                               x$he_hpi$index$volatility$mean,
+                                               x$rf_hpi$index$volatility$mean))}) %>%
+  dplyr::bind_rows()
+```
+
+Summarizing into a table
+
+```{r}
+lvol_sdf <- vol_ldf %>%
+  dplyr::group_by(model) %>%
+  dplyr::summarize(mean = mean(volatility))
+
+```
+
+Creating an annotation layer for the plot
+
+```{r}
+  lanno_df <- data.frame(Model = c('Hedonic', 'IRF', 'Repeat Sales'),
+                         xpos = 67, ypos = 67, region = 0, 
+                         lab = paste0('Vol: ', round(lvol_sdf$mean, 3))) %>%
+  dplyr::mutate(Model = forcats::fct_relevel(as.factor(Model), 
+                                             c('Repeat Sales', 'Hedonic', 'IRF')))
+```
+
+Plotting local indexes with volatility. 
+
+```{r}
+  lindex_plot <- ggplot(index_ldf, aes(x = time, y = index, group = region)) + 
+    geom_line(alpha = .4)  + 
+    coord_cartesian(ylim = c(50, 250)) + 
+    geom_line(data = index_gdf, aes(x = time, y = index, group = region), 
+              color = 'red', size = 1)+ 
+    facet_wrap(~Model) + 
+    annotate("rect", xmin = 51, xmax = 83, ymin = 58, ymax = 78, col = 'gray93',
+             fill = 'gray93') +
+    geom_text(data = lanno_df, aes(x = xpos,  y = ypos, label = lab), color = 'black') + 
+    scale_x_continuous(breaks = c(1,25,49,73), labels = c(2010, 2012, 2014, 2016)) +
+    xlab('') + ylab('Index Value\n') + 
+    theme(legend.position="none",
+          plot.title = element_text(hjust = 0.5)) + 
+    ggtitle('Local Index Variation by Model')
+   lindex_plot
+   
+```
+
+
+### Revision
+
+```{r}
+
+  grev_mdf <- purrr::map2(.x = geo_results,
+                         .y = names(geo_results),
+                         .f = function(x, y){
+                                data.frame(model = c('Repeat Sales', 'Hedonic', 'IRF'),
+                                           region = y,
+                                           revision = c(x$rt_series$revision$mean,
+                                                        x$he_series$revision$mean,
+                                                        x$rf_series$revision$mean))}) %>%
+    dplyr::bind_rows()
+
+  grev_sdf <- grev_mdf %>%
+    dplyr::group_by(model) %>%
+    dplyr::summarize(mean = mean(revision),
+                     ameam = mean(abs(revision)))
+
+  grev_gdf <- dplyr::bind_rows(rt_series$revision$period %>% 
+                                dplyr::mutate(model = 'Repeat Sales'),
+                               hed_series$revision$period %>% 
+                                dplyr::mutate(model = 'Hedonic'),
+                               rf_series$revision$period %>% 
+                                dplyr::mutate(model = 'IRF'))
+
+```
+
+
+<!-- ```{r} -->
+<!--  grev_plot <- ggplot(grev_gdf, aes(x = period, y = median, color = model, size = model)) +  -->
+<!--   geom_line() + -->
+<!--     scale_x_continuous(breaks = seq(1,85, 12), labels = 2010:2017) + -->
+<!--     xlab("") +  -->
+<!--     ylab('Mean Index Revision\n')+ -->
+<!--     scale_color_manual(name = '', values = c('black', 'gray70', 'gray35'))+ -->
+<!--     scale_size_manual(name = '', values = c(2,1,1)) + -->
+<!--     theme(legend.position="bottom", -->
+<!--           plot.title = element_text(hjust = 0.5)) +  -->
+<!--   ggtitle('Mean Index Revision by Period (By Model)') -->
+<!--  grev_plot -->
+
+<!-- ``` -->
+
+<!-- ```{r} -->
+
+<!-- grev_gdf$index = c(index_gdf$index[2:84] - index_gdf$index[1:83],  -->
+<!--                   index_gdf$index[86:168] - index_gdf$index[85:167],  -->
+<!--                   index_gdf$index[170:252] - index_gdf$index[169:251]) -->
+<!-- grev_gdf$model <- c(rep('RepeatTrans', 83), rep('Hedonic', 83), rep('RandomForest', 83)) -->
+<!-- grev_gdf$model <- forcats::fct_relevel(as.factor(grev_gdf$model),  -->
+<!--                                              c('RepeatTrans', 'Hedonic', 'RandomForest')) -->
+
+<!-- grev_delta_plot <- ggplot(grev_gdf, aes(x = index, y = median, color = model)) +  -->
+<!--   geom_point(color = 'gray50') +  -->
+<!--   geom_smooth(method = "lm", fill = NA, color = 'black') + -->
+<!--   facet_wrap(~model, ncol = 3) + -->
+<!--   xlab("\nPeriod Change in Index") +  -->
+<!--   ylab('Mean Index Revision\n') + -->
+<!--   theme(legend.position="none", -->
+<!--           plot.title = element_text(hjust = 0.5)) +  -->
+<!--   ggtitle('Mean Index Revision by Index Change') +  -->
+<!--   geom_rug(color = 'black', alpha = .4) -->
+<!-- grev_delta_plot -->
+
+<!-- ``` -->
+
+
+
+<!-- ```{r} -->
+
+<!-- rev_ldf <- purrr::map2(.x = geo_results, -->
+<!--                        .y = names(geo_results), -->
+<!--                        .f = function(x, y){ -->
+<!--                          dplyr::bind_rows(data.frame(model = 'RepeatTrans', -->
+<!--                                                      region = y, -->
+<!--                                                      indexdif = x$rt_hpi$index$value[2:84] -  -->
+<!--                                                        x$rt_hpi$index$value[1:83], -->
+<!--                                                      rev = x$rt_series$revision$period$mean), -->
+<!--                                           data.frame(model = 'Hedonic', -->
+<!--                                                      region = y, -->
+<!--                                                      indexdif = x$he_hpi$index$value[2:84] -  -->
+<!--                                                        x$he_hpi$index$value[1:83], -->
+<!--                                                      rev = x$he_series$revision$period$mean), -->
+<!--                                           data.frame(model = 'RandomForest', -->
+<!--                                                      region = y, -->
+<!--                                                      indexdif = x$rf_hpi$index$value[2:84] -  -->
+<!--                                                        x$rf_hpi$index$value[1:83], -->
+<!--                                                      rev = x$rf_series$revision$period$mean))}) %>% -->
+<!--   dplyr::bind_rows() %>% -->
+<!--   dplyr::mutate(model = forcats::fct_relevel(as.factor(model),  -->
+<!--                                              c('RepeatTrans', 'Hedonic', 'RandomForest'))) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+
+<!-- lrev_delta_plot <- ggplot(rev_ldf, aes(x = indexdif, y = rev)) +  -->
+<!--   geom_point(color = 'gray50', size = .5) +  -->
+<!--   geom_smooth(method = "lm", fill = NA, color = 'black') +  -->
+<!--   facet_wrap(~model, scales = 'free_x') + -->
+<!--   coord_cartesian(ylim= c(-5, 5)) + -->
+<!--   geom_hline(yintercept = 0, linetype = 3, color = 'gray20') + -->
+<!--   xlab('\n Change in Index') + -->
+<!--   ylab('Mean Period Revision\n')  + -->
+<!--   theme(legend.position="none", -->
+<!--           plot.title = element_text(hjust = 0.5)) +  -->
+<!--   ggtitle('Revision vs Index Change by Period (Local Models)') +  -->
+<!--   geom_rug(alpha = .05) -->
+<!-- lrev_delta_plot -->
+
+<!-- ``` -->
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+  results_ <- list(explot = explot_df,
+                   index_g = index_gdf,
+                   index_l = index_ldf,
+                   accr_g = gaccr_pdf,
+                   accr_l = laccr_pdf,
+                   vol_g = vol_gdf,
+                   vol_l = vol_ldf)
+  saveRDS(results_, '../data/results_.RDS')
+  
+```
+
+
 
 ### Spatial Dependence
 
@@ -345,223 +656,6 @@ praccr_df <- purrr::map2(.x = geo_results,
     ggtitle('Spatial Dependence of Errors by Accuracy Type and Model') ->
   spdep_plot
   
-```
-## Volatility
-
-```{r}
-
-vol_gdf <- data.frame(model = c('rt', 'hed', 'rf'),
-                      mean_volatility = c(rt_hpi$index$volatility$mean,
-                                            hed_hpi$index$volatility$mean,
-                                            rf_hpi$index$volatility$mean))
-  knitr::kable(vol_gdf %>% dplyr::mutate(Model = c('RepeatTrans', 'Hedonic', 'RandomForest'),
-                                         Volatility = round(mean_volatility, 4)) %>%
-                 dplyr::select(Model, Volatility))
-  
-```
-
-
-
-```{r}
-  ganno_df <- data.frame(Model = c('RepeatTrans', 'Hedonic', 'RandomForest'),
-                        xpos = 73, ypos = 105,
-                        lab = paste0('Vol: ', round(vol_gdf$mean_volatility, 3))) %>%
-  dplyr::mutate(Model = forcats::fct_relevel(as.factor(Model), 
-                                             c('RepeatTrans', 'Hedonic', 'RandomForest')))
-
-  gindex_plot <- ggplot(index_gdf, aes(x = time, y = index, group = Model)) + 
-    geom_line(color = 'black', size = 1) + 
-    geom_text(data = ganno_df, aes(x = xpos,  y = ypos, label = lab), color = 'black') + 
-    facet_wrap(~Model) + 
-    scale_x_continuous(breaks = c(1,25,49,73), labels = c(2010, 2012, 2014, 2016)) +
-    xlab("") + 
-    ylab('Index Value\n')+
-    theme(legend.position="none",
-          plot.title = element_text(hjust = 0.5))
-
-  gindex_plot
-```
-
-```{r}
-
-vol_ldf <- purrr::map2(.x = geo_results,
-                    .y = names(geo_results),
-                    .f = function(x, y){
-                        
-                     data.frame(model = c('rt', 'he', 'rf'),
-                                region = y,
-                                volatility = c(x$rt_hpi$index$volatility$mean,
-                                               x$he_hpi$index$volatility$mean,
-                                               x$rf_hpi$index$volatility$mean))}) %>%
-  dplyr::bind_rows()
-
-lvol_sdf <- vol_ldf %>%
-  dplyr::group_by(model) %>%
-  dplyr::summarize(mean = mean(volatility))
-
-```
-
-```{r}
-  lanno_df <- data.frame(Model = c('Hedonic', 'RandomForest', 'RepeatTrans'),
-                         xpos = 67, ypos = 67, region = 0, 
-                         lab = paste0('Vol: ', round(lvol_sdf$mean, 3))) %>%
-  dplyr::mutate(Model = forcats::fct_relevel(as.factor(Model), 
-                                             c('RepeatTrans', 'Hedonic', 'RandomForest')))
-
-  index_ldf <- purrr::map2(.x = geo_results,
-                           .y = names(geo_results),
-                           .f = function(x, y){
-                         
-                       dplyr::bind_rows(data.frame(Model = 'RepeatTrans',
-                                                   region = y,
-                                                   index = x$rt_hpi$index$value,
-                                                   time = 1:84),
-                                        data.frame(Model = 'Hedonic',
-                                                   region = y,
-                                                   index = x$he_hpi$index$value,
-                                                   time = 1:84),
-                                        data.frame(Model = 'RandomForest',
-                                                   region = y,
-                                                   index = x$rf_hpi$index$value,
-                                                   time = 1:84))}) %>%
-  dplyr::bind_rows() %>%
-  dplyr::mutate(Model = forcats::fct_relevel(as.factor(Model), 
-                                             c('RepeatTrans', 'Hedonic', 'RandomForest')))
-  index_gdf <- index_gdf %>% 
-    dplyr::mutate(region = 0,
-                  Model = forcats::fct_relevel(as.factor(index_gdf$Model), 
-                                              c('RepeatTrans', 'Hedonic', 'RandomForest')))
-```
-
-```{r}
-  lindex_plot <- ggplot(index_ldf, aes(x = time, y = index, group = region)) + 
-    geom_line(alpha = .4)  + 
-    coord_cartesian(ylim = c(50, 250)) + 
-    geom_line(data = index_gdf, aes(x = time, y = index,group = region), 
-              color = 'white', size = 1)+ 
-    facet_wrap(~Model) + 
-    annotate("rect", xmin = 51, xmax = 83, ymin = 58, ymax = 78, col = 'gray93',
-             fill = 'gray93') +
-    geom_text(data = lanno_df, aes(x = xpos,  y = ypos, label = lab), color = 'black') + 
-    scale_x_continuous(breaks = c(1,25,49,73), labels = c(2010, 2012, 2014, 2016)) +
-    xlab('') + ylab('Index Value\n') + 
-    theme(legend.position="none",
-          plot.title = element_text(hjust = 0.5)) + 
-    ggtitle('Local Index Variation by Model')
-   lindex_plot
-   
-```
-
-### Revision
-
-```{r}
-
-grev_mdf <- purrr::map2(.x = geo_results,
-                       .y = names(geo_results),
-                       .f = function(x, y){
-                              data.frame(model = c('RepeatTrans', 'Hedonic', 'RandomForest'),
-                                         region = y,
-                                         revision = c(x$rt_series$revision$mean,
-                                                      x$he_series$revision$mean,
-                                                      x$rf_series$revision$mean))}) %>%
-  dplyr::bind_rows()
-
-grev_sdf <- grev_mdf %>%
-  dplyr::group_by(model) %>%
-  dplyr::summarize(mean = mean(revision),
-                   ameam = mean(abs(revision)))
-
-grev_gdf <- dplyr::bind_rows(rt_series$revision$period %>% 
-                              dplyr::mutate(model = 'RepeatTrans'),
-                             hed_series$revision$period %>% 
-                              dplyr::mutate(model = 'Hedonic'),
-                             rf_series$revision$period %>% 
-                              dplyr::mutate(model = 'RandomForest'))
-
-```
-
-
-```{r}
- grev_plot <- ggplot(grev_gdf, aes(x = period, y = median, color = model, size = model)) + 
-  geom_line() +
-    scale_x_continuous(breaks = seq(1,85, 12), labels = 2010:2017) +
-    xlab("") + 
-    ylab('Mean Index Revision\n')+
-    scale_color_manual(name = '', values = c('black', 'gray70', 'gray35'))+
-    scale_size_manual(name = '', values = c(2,1,1)) +
-    theme(legend.position="bottom",
-          plot.title = element_text(hjust = 0.5)) + 
-  ggtitle('Mean Index Revision by Period (By Model)')
- grev_plot
- 
-```
-
-```{r}
-
-grev_gdf$index = c(index_gdf$index[2:84] - index_gdf$index[1:83], 
-                  index_gdf$index[86:168] - index_gdf$index[85:167], 
-                  index_gdf$index[170:252] - index_gdf$index[169:251])
-grev_gdf$model <- c(rep('RepeatTrans', 83), rep('Hedonic', 83), rep('RandomForest', 83))
-grev_gdf$model <- forcats::fct_relevel(as.factor(grev_gdf$model), 
-                                             c('RepeatTrans', 'Hedonic', 'RandomForest'))
-
-grev_delta_plot <- ggplot(grev_gdf, aes(x = index, y = median, color = model)) + 
-  geom_point(color = 'gray50') + 
-  geom_smooth(method = "lm", fill = NA, color = 'black') +
-  facet_wrap(~model, ncol = 3) +
-  xlab("\nPeriod Change in Index") + 
-  ylab('Mean Index Revision\n') +
-  theme(legend.position="none",
-          plot.title = element_text(hjust = 0.5)) + 
-  ggtitle('Mean Index Revision by Index Change') + 
-  geom_rug(color = 'black', alpha = .4)
-grev_delta_plot
-
-```
-
-
-
-```{r}
-
-rev_ldf <- purrr::map2(.x = geo_results,
-                       .y = names(geo_results),
-                       .f = function(x, y){
-                         dplyr::bind_rows(data.frame(model = 'RepeatTrans',
-                                                     region = y,
-                                                     indexdif = x$rt_hpi$index$value[2:84] - 
-                                                       x$rt_hpi$index$value[1:83],
-                                                     rev = x$rt_series$revision$period$mean),
-                                          data.frame(model = 'Hedonic',
-                                                     region = y,
-                                                     indexdif = x$he_hpi$index$value[2:84] - 
-                                                       x$he_hpi$index$value[1:83],
-                                                     rev = x$he_series$revision$period$mean),
-                                          data.frame(model = 'RandomForest',
-                                                     region = y,
-                                                     indexdif = x$rf_hpi$index$value[2:84] - 
-                                                       x$rf_hpi$index$value[1:83],
-                                                     rev = x$rf_series$revision$period$mean))}) %>%
-  dplyr::bind_rows() %>%
-  dplyr::mutate(model = forcats::fct_relevel(as.factor(model), 
-                                             c('RepeatTrans', 'Hedonic', 'RandomForest')))
-```
-
-```{r}
-
-lrev_delta_plot <- ggplot(rev_ldf, aes(x = indexdif, y = rev)) + 
-  geom_point(color = 'gray50', size = .5) + 
-  geom_smooth(method = "lm", fill = NA, color = 'black') + 
-  facet_wrap(~model, scales = 'free_x') +
-  coord_cartesian(ylim= c(-5, 5)) +
-  geom_hline(yintercept = 0, linetype = 3, color = 'gray20') +
-  xlab('\n Change in Index') +
-  ylab('Mean Period Revision\n')  +
-  theme(legend.position="none",
-          plot.title = element_text(hjust = 0.5)) + 
-  ggtitle('Revision vs Index Change by Period (Local Models)') + 
-  geom_rug(alpha = .05)
-lrev_delta_plot
-
 ```
 
 ```{r}

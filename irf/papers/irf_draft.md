@@ -170,17 +170,88 @@ where $y_{it}$ is the resale, $y_{is}$ is the initial sale and the $D_{\tau,i}$s
 
 ## Results
 
+I begin with visual comparison of indexes generated from the three models -- Interpretable Random Forest, Hedonic Price and Repeat Sales (Figure 5). There are three key takeaways from this comparison.  First, generally speaking the three model suggest similar price trends; initial evidence that the IRF approach 'works' in the sense that it can track broad market movements commensurate with established methods. 
+
+Second, the IRF method is significantly less volatile period-to-period than the Hedonic and Repeat Sales approaches.  The extent of this difference and possible reasons for it will be discussed in the section on Volatility below.
+
+Finally, the indexes diverge over the last 12 months of the index, essentially all of 2016.  Looking only at a single index it is difficult to pinpoint the rationale for this difference.  Or rather, is this a idiosyncratic difference due to the data for 2016 or is it a structural difference due to the IRF's method of estimation.  The fact that the random forest underlying the IRF approach treats time as a continuous variable and makes binary splits on that variable does suggest that it may produce 'overly-flat' estimates at the ends of the time period (both beginning and end) due to how the time periods are aggregated during the tree growing splits.  I'll explore this hypothesis further below. 
+
+**Figure 5: Comparison of Indexes**
 ![](irf_draft_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
 
-<!-- ## Comparison -->
+### Accuracy
 
-<!-- I compare the Interpretable Random Forest with the two most common approaches to generating house price indexes -- Repeat Sales and Hedonic Price models.  I begin by describing the model specification and parameters. A discussion of the data and geographic subsetting tested follows.  After a simple visual comparison of the three global indexes, the models are compared based on accuracy, volatility and revision, both at global and local scales.  -->
+At a broad scale, the indexes similar time trends, but smaller variations do exist. I next ask, which is the more accuracy index generating method?  In this context, accuracy refers to the ability of the index to predict the second sale in a repeat sale pair. More simply, if we take the first sale in a repeat sale pair and adjust it with the index, how close is this adjusted value to the actual price of the second sale? When measuring the error -- or the difference between predicted and actual second sale -- we use log metrics due to their ability to avoid denominator bias and the skewness in possible errors that results (Tofallis 2015).  The formula for evaluating accuracy is:
 
-<!-- ### Visual -->
+$log(price_{pred}) - log(price_{actual})$
 
-<!-- ### Accuracy -->
+where the $price_{pred}$ is the time adjusted prediction and $price_{actual}$ is the actual sale price of the repeat (second) transaction in the sales pair.
 
-<!-- ### Volatility -->
+Using repeat sales as our validation criteria does impart some advantage to the repeat transaction method; however, we evaluate accuracy in two distinct ways that lessen any perceived advantage this may provide.  First, we evaluate the ability of indexes to predict prices out-of-sample using a k-fold approach.  In this case, we use a 10-fold approach, whereby 90% of the sample is used to create an index that is then used to predict repeat sale prices on the 10% that was held out of the samnple.  This is done for each 10% random holdout. By doing so, no evaluation observations (repeat transaction) can influence the index used to predict its second sale price. We refer to error metrics from this approach as 'K-Fold' errors.
+
+The convention k-fold approach can be a bit problematic in a longitudinal setting such as estimating house price indexes.  In any of the 90/10 splits, most of the holdout set is being valued by an index that 'knows the future'; or one that was estimated with information well after the holdout observation occured.  This situation does not well approximate many of the actual use cases of house price indexes which are often most interested in the fidelity of the index at the most recent point in time (i.e. last month or quarter).  Another approach to out-of-sample measurement is to forward predict, or to predict 'out-of-time'.  As an example, to measure out of sample (time) accuracy on a sale-resale pair that sold in period 1 and then again in period 30, we would use the data from period 1 to 29 to create an index, then foreward cast the index one period and evaluate the forward indexed price from period 1 against the subsequent sale in period 30.  In other words, we want to ensure the model is ignorant of the validation point (the period 30 sale) as well as an other future knowledge of market trends (as they are highly correlated within a market area across time). One major downfall of this approach is that is requires specificying and implementing a forecasting approach, which itself adds additional uncertainty to the process. The forward predictions are made with an ANN prediction approach (R `forecast` package...[NEED more info on this]). We refer to these error metrics as Prediction errors.
+
+
+As both accuracy approaches have downfalls, I measure them both with an eye towards understanding if there are relative differences in performance based on the metric chosen.  I discuss these implications in the Discussion section below. Both error metrics are evaluated at both the Global and Local scales.  Additionally, we comparing accuracy statistcs we examine median absolute percentage error (MdAPE) and median percentage error (MdPE).  MdAPE measures the accuracy of the index while MdPE measures its bias.
+
+#### Accuracy - Global
+
+Global accuracy result are shown in Table 2.  For the K-Fold metrics, the Random Forest approach shows the best accuracy (MdAPE), though the Repeat Transaction models show less bias (lower MdPE).   Moving over to Prediction evaluation, the Hedonic approach is the clear winner in terms of accuracy, with the Repeat Transaction model again showing the lowest bias.
+
+<!-- Based on the global accuracy values, neither of the three index approach methods clearly outperms the others.  Repeat transactions do hold lower biases in this sample, but, as is often the case, at the expensive of some bit of accuracy. -->
+
+
+Model           MdAPE (k-fold)   MdPE (k-fold)   MdAPE (forecast)   MdPE (forecast)
+-------------  ---------------  --------------  -----------------  ----------------
+Repeat Sales            0.0800         -0.0018             0.0832           -0.0055
+Hedonic                 0.0823         -0.0329             0.0808           -0.0363
+IRF                     0.0792         -0.0305             0.0876           -0.0612
+
+#### Local Accuracy
+
+
+Model           MdAPE (k-fold)   MdPE (k-fold)   MdAPE (forecast)   MdPE (forecast)
+-------------  ---------------  --------------  -----------------  ----------------
+Repeat Sales            0.1368         -0.0025             0.1512           -0.0475
+Hedonic                 0.0862         -0.0151             0.0821           -0.0328
+IRF                     0.0816         -0.0413             0.0957           -0.0821
+
+
+<!-- Examining the local accuracy numbers shows are marked change from the Global ones.  The much smaller sample sizes in the Assessment zones creates a considerable decrease in accuracy (errors +70%) for the Repeat Transaction model across both the K-Fold and Prediction metrics.  Accuracy numbers for the Hedonic and Random Forest also increased, but very slightly so.  In terms of accuracy, the Random Forest approach remains the most accurate in the K-Fold scenario, while the Hedonic again dominates in a predictive sense.  Biases remain high in the Random Forest approach.  Despite the large degradation in accuracy, the Repeat Transaction model remains unbiased in the K-fold, but not in a prediction framework.   -->
+
+<!-- ```{r} -->
+
+<!--   print_df <- data_$laccr_pdf -->
+<!--   print_df$Model <- forcats::fct_relevel(print_df$Model, 'RepeatTrans', 'Hedonic') -->
+<!--   knitr::kable(print_df %>% dplyr::arrange(Model)) -->
+
+<!-- ``` -->
+
+<!-- The accuracy evaluation suggests a number of stylized facts to be considered in the remainder of this paper: -->
+
+<!-- * The move from Global to Local models did not improve accuracy in any model, and greatly harmed the Repeat Transaction models -->
+<!-- * All models are either unbiased (Repeat Transactions) or show bias on the low end; are underpredicting second sale pricdes -->
+<!-- * Random Forest models are more accurate than Hedonic in K-Fold, but this relationship switches in a Prediction scenario.   -->
+
+<!-- We spend the remainder of this paper exploring each of these facts through additional measures of model performance.  -->
+
+### Volatility
+
+Volatility measures the variation in the index value from period to period.  While there is no ideal minimal level of volatility that is desired; no volatility at all signifies a perfectly flat index which is not desirable if there are market movements -- in general lower volatility is usually preferred to higher. High volatilty may be a sign of overfitting from the underlying model, or, as is often the case in areas with few sales, simply a product of small sample sizes.  
+
+What is desirable is an index that tracks the market without fluctuating widely above and below the actual trend each period.  In this research, volatility is measured as the standard deviations of period-to-period changes in a rolling four-period time span.
+
+$V = sd(D_{t, t+1, t+2})$ where $D = index_k - index_{k-1}$
+
+This is an appealing metric as consistent, monotonic changes over a four month span -- the three measures of period changes -- will produce very low standard deviations.  On the contrary, wildly fluctuating indexes with irregular directionaly movements will produce high volatility measures. 
+
+#### Global
+
+![](irf_draft_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
+
+#### Local
+
+![](irf_draft_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
 
 <!-- ### Revision -->
 
@@ -276,6 +347,8 @@ Rudin, C. and Carlson, D. (2019) The Secrets of Machine Learning: Ten Things You
 Slack, D., Friedler, S., Scheidegger, C. and Roy, C.D. (2019) Assessing the Local Interpretability of Machine Learning Models. [https://arxiv.org/pdf/1902.03501.pdf](https://arxiv.org/pdf/1902.03501.pdf)
 
 Steele, M., & Goy, R. (1997). Short holds, the distributions of first and second sales, and bias in the repeat-sales price index. *The Journal of Real Estate Finance and Economics*, 14(1), 133-154.
+
+Tofallis, C (2015). A better measure of relative prediction accuracy for model selection and model estimation. *Journal of the Operational Research Society*, 66, 1352-1362. doi:10.1057/jors.2014.103
 
 Write, M. and Ziegler, A. (2017) ranger: A Fast Implmentation of Random Forests for High Dimensional Data in C++ and R. *Journal of Statistical Software*, 77(1), 1-17. 
 
