@@ -247,22 +247,23 @@ As both accuracy approaches have downfalls, I measure them both with an eye towa
 
 #### Accuracy - Global
 
-Global accuracy result are shown in Table 2.  For the K-Fold metrics, the Random Forest approach shows the best accuracy (MdAPE), though the Repeat Transaction models show less bias (lower MdPE).   Moving over to Prediction evaluation, the Hedonic approach is the clear winner in terms of accuracy, with the Repeat Transaction model again showing the lowest bias.
+Global accuracy result are shown in Table 2.  For the K-Fold metrics, the Interpretable Random Forest approach shows the best accuracy (MdAPE), though the Repeat Transaction models show less bias (lower MdPE).   Moving over to Foredast evaluation, the Hedonic approach is the clear winner in terms of accuracy, with the Repeat Transaction model again showing the lowest bias. The IRF model performs particularly poorly in the forecast approach.  As alluded to above, this could be a direct product of the splitting processes used in Random Forest model which is likely to be slow to keep up with rapidly increasing markets (as experienced in over this time frame). 
 
-<!-- Based on the global accuracy values, neither of the three index approach methods clearly outperms the others.  Repeat transactions do hold lower biases in this sample, but, as is often the case, at the expensive of some bit of accuracy. -->
+Based on the global accuracy values, neither of the three index approach methods clearly outperms the others.  Repeat transactions do hold lower biases in this sample, but, as is often the case, at the expensive of some bit of accuracy.
 
+**Table 2: Global Accuracy**
 ```{r}
-
   print_df <- results_$accr_g %>%
   dplyr::mutate(Model = c('Hedonic', 'IRF', 'Repeat Sales')) %>%
   dplyr::rename(`MdAPE (k-fold)` = MAPE_KF, `MdPE (k-fold)` = MPE_KF,
                 `MdAPE (forecast)` = MAPE_PR, `MdPE (forecast)` = MPE_PR)
   print_df$Model <- forcats::fct_relevel(print_df$Model, 'Repeat Sales', 'Hedonic')
   knitr::kable(print_df %>% dplyr::arrange(Model))
-
 ```
 
 #### Local Accuracy
+
+Examining the local accuracy numbers shows are marked change from the Global ones.  The much smaller sample sizes in the Assessment zones creates a considerable decrease in accuracy (errors +70%) for the Repeat Transaction model across both the K-Fold and Forecast metrics.  Accuracy numbers for the Hedonic and Random Forest also increased, but very slightly so.  In terms of accuracy, the Random Forest approach remains the most accurate in the K-Fold scenario, while the Hedonic again dominates in a predictive sense.  Biases remain high in the Random Forest approach.  Despite the large degradation in accuracy, the Repeat Sales model remains unbiased in the K-fold, but not in a forecast framework.
 
 ```{r}
 
@@ -275,24 +276,13 @@ Global accuracy result are shown in Table 2.  For the K-Fold metrics, the Random
 
 ```
 
+The accuracy evaluation suggests a number of stylized facts to be considered in the remainder of this paper:
 
-<!-- Examining the local accuracy numbers shows are marked change from the Global ones.  The much smaller sample sizes in the Assessment zones creates a considerable decrease in accuracy (errors +70%) for the Repeat Transaction model across both the K-Fold and Prediction metrics.  Accuracy numbers for the Hedonic and Random Forest also increased, but very slightly so.  In terms of accuracy, the Random Forest approach remains the most accurate in the K-Fold scenario, while the Hedonic again dominates in a predictive sense.  Biases remain high in the Random Forest approach.  Despite the large degradation in accuracy, the Repeat Transaction model remains unbiased in the K-fold, but not in a prediction framework.   -->
+* The move from Global to Local models did not improve accuracy in any model, and greatly harmed the Repeat Transaction models
+* All models are either unbiased (Repeat Transactions) or show bias on the low end; are underpredicting second sale pricdes
+* Random Forest models are more accurate than Hedonic in K-Fold, but this relationship switches in a Prediction scenario.
 
-<!-- ```{r} -->
-
-<!--   print_df <- data_$laccr_pdf -->
-<!--   print_df$Model <- forcats::fct_relevel(print_df$Model, 'RepeatTrans', 'Hedonic') -->
-<!--   knitr::kable(print_df %>% dplyr::arrange(Model)) -->
-
-<!-- ``` -->
-
-<!-- The accuracy evaluation suggests a number of stylized facts to be considered in the remainder of this paper: -->
-
-<!-- * The move from Global to Local models did not improve accuracy in any model, and greatly harmed the Repeat Transaction models -->
-<!-- * All models are either unbiased (Repeat Transactions) or show bias on the low end; are underpredicting second sale pricdes -->
-<!-- * Random Forest models are more accurate than Hedonic in K-Fold, but this relationship switches in a Prediction scenario.   -->
-
-<!-- We spend the remainder of this paper exploring each of these facts through additional measures of model performance.  -->
+We spend the remainder of this paper exploring each of these facts through additional measures of model performance.
 
 ### Volatility
 
@@ -306,13 +296,13 @@ This is an appealing metric as consistent, monotonic changes over a four month s
 
 #### Global
 
-```{r}
+```{r fig.height = 4, fig.width = 8}
 
-  ganno_df <- data.frame(Model = c('RepeatTrans', 'Hedonic', 'RandomForest'),
+  ganno_df <- data.frame(Model = c('Repeat Sales', 'Hedonic', 'IRF'),
                         xpos = 73, ypos = 105,
                         lab = paste0('Vol: ', round(results_$vol_g$mean_volatility, 3))) %>%
   dplyr::mutate(Model = forcats::fct_relevel(as.factor(Model), 
-                                             c('RepeatTrans', 'Hedonic', 'RandomForest')))
+                                             c('Repeat Sales', 'Hedonic', 'IRF')))
 
   ggplot(results_$index_g, aes(x = time, y = index, group = Model)) + 
     geom_line(color = 'black', size = 1) + 
@@ -328,22 +318,22 @@ This is an appealing metric as consistent, monotonic changes over a four month s
 
 #### Local
 
-```{r}
+```{r, fig.height = 4, fig.width = 8}
   
 lvol_sdf <- results_$vol_l %>%
   dplyr::group_by(model) %>%
   dplyr::summarize(mean = mean(volatility))
 
-  lanno_df <- data.frame(Model = c('Hedonic', 'RandomForest', 'RepeatTrans'),
+  lanno_df <- data.frame(Model = c('Hedonic', 'IRF', 'Repeat Sales'),
                          xpos = 67, ypos = 67, region = 0, 
                          lab = paste0('Vol: ', round(lvol_sdf$mean, 3))) %>%
   dplyr::mutate(Model = forcats::fct_relevel(as.factor(Model), 
-                                             c('RepeatTrans', 'Hedonic', 'RandomForest')))
+                                             c('Repeat Sales', 'Hedonic', 'IRF')))
 
   results_$index_g <- results_$index_g %>% 
     dplyr::mutate(region = 0,
                   Model = forcats::fct_relevel(as.factor(results_$index_g$Model), 
-                                              c('RepeatTrans', 'Hedonic', 'RandomForest')))
+                                              c('Repeat Sales', 'Hedonic', 'IRF')))
 
   ggplot(results_$index_l, aes(x = time, y = index, group = region)) + 
     geom_line(alpha = .4)  + 
@@ -362,9 +352,59 @@ lvol_sdf <- results_$vol_l %>%
 
 ```
 
-<!-- ### Revision -->
+### Revision
+
+```{r fig.height = 4, fig.width = 8}
+ ggplot(results_$rev_g, aes(x = period, y = median, color = model, size = model)) +
+  geom_line() +
+    scale_x_continuous(breaks = seq(1,85, 12), labels = 2010:2017) +
+    xlab("") +
+    ylab('Mean Index Revision\n')+
+    scale_color_manual(name = '', values = c('black', 'gray70', 'gray35'))+
+    scale_size_manual(name = '', values = c(2,1,1)) +
+    theme(legend.position="bottom",
+          plot.title = element_text(hjust = 0.5)) +
+  ggtitle('Mean Index Revision by Period (By Model)')
+```
 
 
+```{r fig.height = 4, fig.width = 8}
+
+results_$rev_g$index = c(results_$index_g$index[2:84] - results_$index_g$index[1:83],
+                         results_$index_g$index[86:168] - results_$index_g$index[85:167],
+                         results_$index_g$index[170:252] - results_$index_g$index[169:251])
+results_$rev_g$model <- c(rep('RepeatTrans', 83), rep('Hedonic', 83), rep('RandomForest', 83))
+results_$rev_g$model <- forcats::fct_relevel(as.factor(results_$rev_g$model),
+                                             c('RepeatTrans', 'Hedonic', 'RandomForest'))
+
+ggplot(results_$rev_g, aes(x = index, y = median, color = model)) +
+  geom_point(color = 'gray50') +
+  geom_smooth(method = "lm", fill = NA, color = 'black') +
+  facet_wrap(~model, ncol = 3) +
+  xlab("\nPeriod Change in Index") +
+  ylab('Mean Index Revision\n') +
+  theme(legend.position="none",
+          plot.title = element_text(hjust = 0.5)) +
+  ggtitle('Mean Index Revision by Index Change') +
+  geom_rug(color = 'black', alpha = .4)
+```
+
+```{r fig.height = 4, fig.width = 8}
+
+ggplot(results_$rev_l, aes(x = indexdif, y = rev)) +
+  geom_point(color = 'gray50', size = .5) +
+  geom_smooth(method = "lm", fill = NA, color = 'black') +
+  facet_wrap(~model, scales = 'free_x') +
+  coord_cartesian(ylim= c(-5, 5)) +
+  geom_hline(yintercept = 0, linetype = 3, color = 'gray20') +
+  xlab('\n Change in Index') +
+  ylab('Mean Period Revision\n')  +
+  theme(legend.position="none",
+          plot.title = element_text(hjust = 0.5)) +
+  ggtitle('Revision vs Index Change by Period (Local Models)') +
+  geom_rug(alpha = .05)
+
+```
 
 
 ## References

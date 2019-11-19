@@ -4,7 +4,7 @@ author:
  Andy Krause
  -- Zillow Group
  -- Seattle, WA
-date: "2019-11-17"
+date: "2019-11-18"
 output: 
   html_document:
       keep_md: yes
@@ -196,10 +196,11 @@ As both accuracy approaches have downfalls, I measure them both with an eye towa
 
 #### Accuracy - Global
 
-Global accuracy result are shown in Table 2.  For the K-Fold metrics, the Random Forest approach shows the best accuracy (MdAPE), though the Repeat Transaction models show less bias (lower MdPE).   Moving over to Prediction evaluation, the Hedonic approach is the clear winner in terms of accuracy, with the Repeat Transaction model again showing the lowest bias.
+Global accuracy result are shown in Table 2.  For the K-Fold metrics, the Interpretable Random Forest approach shows the best accuracy (MdAPE), though the Repeat Transaction models show less bias (lower MdPE).   Moving over to Foredast evaluation, the Hedonic approach is the clear winner in terms of accuracy, with the Repeat Transaction model again showing the lowest bias. The IRF model performs particularly poorly in the forecast approach.  As alluded to above, this could be a direct product of the splitting processes used in Random Forest model which is likely to be slow to keep up with rapidly increasing markets (as experienced in over this time frame). 
 
-<!-- Based on the global accuracy values, neither of the three index approach methods clearly outperms the others.  Repeat transactions do hold lower biases in this sample, but, as is often the case, at the expensive of some bit of accuracy. -->
+Based on the global accuracy values, neither of the three index approach methods clearly outperms the others.  Repeat transactions do hold lower biases in this sample, but, as is often the case, at the expensive of some bit of accuracy.
 
+**Table 2: Global Accuracy**
 
 Model           MdAPE (k-fold)   MdPE (k-fold)   MdAPE (forecast)   MdPE (forecast)
 -------------  ---------------  --------------  -----------------  ----------------
@@ -209,6 +210,8 @@ IRF                     0.0792         -0.0305             0.0876           -0.0
 
 #### Local Accuracy
 
+Examining the local accuracy numbers shows are marked change from the Global ones.  The much smaller sample sizes in the Assessment zones creates a considerable decrease in accuracy (errors +70%) for the Repeat Transaction model across both the K-Fold and Forecast metrics.  Accuracy numbers for the Hedonic and Random Forest also increased, but very slightly so.  In terms of accuracy, the Random Forest approach remains the most accurate in the K-Fold scenario, while the Hedonic again dominates in a predictive sense.  Biases remain high in the Random Forest approach.  Despite the large degradation in accuracy, the Repeat Sales model remains unbiased in the K-fold, but not in a forecast framework.
+
 
 Model           MdAPE (k-fold)   MdPE (k-fold)   MdAPE (forecast)   MdPE (forecast)
 -------------  ---------------  --------------  -----------------  ----------------
@@ -216,24 +219,13 @@ Repeat Sales            0.1368         -0.0025             0.1512           -0.0
 Hedonic                 0.0862         -0.0151             0.0821           -0.0328
 IRF                     0.0816         -0.0413             0.0957           -0.0821
 
+The accuracy evaluation suggests a number of stylized facts to be considered in the remainder of this paper:
 
-<!-- Examining the local accuracy numbers shows are marked change from the Global ones.  The much smaller sample sizes in the Assessment zones creates a considerable decrease in accuracy (errors +70%) for the Repeat Transaction model across both the K-Fold and Prediction metrics.  Accuracy numbers for the Hedonic and Random Forest also increased, but very slightly so.  In terms of accuracy, the Random Forest approach remains the most accurate in the K-Fold scenario, while the Hedonic again dominates in a predictive sense.  Biases remain high in the Random Forest approach.  Despite the large degradation in accuracy, the Repeat Transaction model remains unbiased in the K-fold, but not in a prediction framework.   -->
+* The move from Global to Local models did not improve accuracy in any model, and greatly harmed the Repeat Transaction models
+* All models are either unbiased (Repeat Transactions) or show bias on the low end; are underpredicting second sale pricdes
+* Random Forest models are more accurate than Hedonic in K-Fold, but this relationship switches in a Prediction scenario.
 
-<!-- ```{r} -->
-
-<!--   print_df <- data_$laccr_pdf -->
-<!--   print_df$Model <- forcats::fct_relevel(print_df$Model, 'RepeatTrans', 'Hedonic') -->
-<!--   knitr::kable(print_df %>% dplyr::arrange(Model)) -->
-
-<!-- ``` -->
-
-<!-- The accuracy evaluation suggests a number of stylized facts to be considered in the remainder of this paper: -->
-
-<!-- * The move from Global to Local models did not improve accuracy in any model, and greatly harmed the Repeat Transaction models -->
-<!-- * All models are either unbiased (Repeat Transactions) or show bias on the low end; are underpredicting second sale pricdes -->
-<!-- * Random Forest models are more accurate than Hedonic in K-Fold, but this relationship switches in a Prediction scenario.   -->
-
-<!-- We spend the remainder of this paper exploring each of these facts through additional measures of model performance.  -->
+We spend the remainder of this paper exploring each of these facts through additional measures of model performance.
 
 ### Volatility
 
@@ -253,9 +245,14 @@ This is an appealing metric as consistent, monotonic changes over a four month s
 
 ![](irf_draft_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
 
-<!-- ### Revision -->
+### Revision
+
+![](irf_draft_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
 
 
+![](irf_draft_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
+
+![](irf_draft_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
 
 
 ## References
