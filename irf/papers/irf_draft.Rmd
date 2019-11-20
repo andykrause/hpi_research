@@ -247,9 +247,9 @@ As both accuracy approaches have downfalls, I measure them both with an eye towa
 
 #### Accuracy - Global
 
-Global accuracy result are shown in Table 2.  For the K-Fold metrics, the Interpretable Random Forest approach shows the best accuracy (MdAPE), though the Repeat Transaction models show less bias (lower MdPE).   Moving over to Foredast evaluation, the Hedonic approach is the clear winner in terms of accuracy, with the Repeat Transaction model again showing the lowest bias. The IRF model performs particularly poorly in the forecast approach.  As alluded to above, this could be a direct product of the splitting processes used in Random Forest model which is likely to be slow to keep up with rapidly increasing markets (as experienced in over this time frame). 
+Global accuracy result are shown in Table 2.  For the K-Fold metrics, the Interpretable Random Forest approach shows the best accuracy (MdAPE), though the Repeat Sales model results in the lowest bias (lower MdPE). Moving over to Forecast evaluation, the Hedonic approach is the clear winner in terms of accuracy, with the Repeat Sales model again showing the lowest bias. The IRF model performs particularly poorly in the Forecast approach.  As alluded to above, this could be a direct product of the splitting processes used in Random Forest model which is likely to be slow to keep up with rapidly increasing markets (as experienced over this time frame). 
 
-Based on the global accuracy values, neither of the three index approach methods clearly outperms the others.  Repeat transactions do hold lower biases in this sample, but, as is often the case, at the expensive of some bit of accuracy.
+Based on the global accuracy values, neither of the three index approach methods clearly outperforms the others.  Repeat sales do hold lower biases in this sample, but, as is often the case, at the expensive of some bit of accuracy.  The reduced bias of the repeat sales model could also be a direct result of using repeat sales as the validation set. 
 
 **Table 2: Global Accuracy**
 ```{r}
@@ -263,7 +263,7 @@ Based on the global accuracy values, neither of the three index approach methods
 
 #### Local Accuracy
 
-Examining the local accuracy numbers shows are marked change from the Global ones.  The much smaller sample sizes in the Assessment zones creates a considerable decrease in accuracy (errors +70%) for the Repeat Transaction model across both the K-Fold and Forecast metrics.  Accuracy numbers for the Hedonic and Random Forest also increased, but very slightly so.  In terms of accuracy, the Random Forest approach remains the most accurate in the K-Fold scenario, while the Hedonic again dominates in a predictive sense.  Biases remain high in the Random Forest approach.  Despite the large degradation in accuracy, the Repeat Sales model remains unbiased in the K-fold, but not in a forecast framework.
+Examining the local accuracy numbers shows some marked change from the Global figures.  The much smaller sample sizes in the Assessment zones creates a considerable decrease in accuracy (errors +70%) for the Repeat Sales model across both the K-Fold and Forecast metrics.  Accuracy numbers for the Hedonic and Random Forest also increased, but very slightly so.  In terms of accuracy, the Random Forest approach remains the most accurate in the K-Fold scenario, while the Hedonic again dominates in a predictive sense.  Biases remain high in the Random Forest approach.  Despite the large degradation in accuracy, the Repeat Sales model remains unbiased in the K-fold, but not in a forecast framework.
 
 ```{r}
 
@@ -296,6 +296,9 @@ This is an appealing metric as consistent, monotonic changes over a four month s
 
 #### Global
 
+Using the volatility metric defined above, we can measure the differences in 'smoothness' of the three approaches (Figure 6).  While the Repeat Sales and Hedonic methods have differences in their period to period movements, overall their levels of volatility are essentially the same.  The volatility of the IRF model is 1/6 that of the others, confirming what we saw visually in Figure 5.  
+
+**Figure 6: Global Volatility**
 ```{r fig.height = 4, fig.width = 8}
 
   ganno_df <- data.frame(Model = c('Repeat Sales', 'Hedonic', 'IRF'),
@@ -318,6 +321,9 @@ This is an appealing metric as consistent, monotonic changes over a four month s
 
 #### Local
 
+Computing volatility for each of the 25 local areas (assessment zones) shows are much wider differential in volatility among the methods.  Moving to local models creates vastly greater volatility for the Repeat Sales model.  The smaller sample size has a much greater impact on Repeat Sales model as this approach already is an inefficient use of data -- doesn't use all transactions.  The hedonic model shows about 3 times the volatilty at the local level -- on average -- than globally.  For the IRF model, the local models are just as smooth as the global approach, a marked contrast from the other two methods.  Additionally, the spread of index values for the local areas are much tighter for the IRF than the two others.  
+
+**Figure 7: Local Volatilty**
 ```{r, fig.height = 4, fig.width = 8}
   
 lvol_sdf <- results_$vol_l %>%
@@ -354,6 +360,17 @@ lvol_sdf <- results_$vol_l %>%
 
 ### Revision
 
+The final metric, revision, is the amount that previous index values change as a new period is added to the index.  For example, imagine the 5th period in our index is estimated at 110.  We then receive data for period 6 and the index value for period 5 is revised down to 109 due to changes in our model's coefficients as a result of the additional sample observations.  This is a revision of 1.  Here, we measure revision as the global mean of the individual mean of the revisions for each period in the index as it expands out to cover the entire time period.  Or, take an average of the combined average revisions to period 1, the average revisions to period 2, ..., the average revisions to period k.
+
+$R = \sum{R_k}/k$ where $R_k = \sum{(K_j - K_{j-1})}/j$ where $j$ is the new index being generated after each addition of data. 
+
+Revisions are particularly interesting and worthwhile metric for house price use cases that are continuously updating an index over time.  Large and consistent re-statements of prior index periods can be problematic, especially if the indexes are used to back financial instruments (Deng and Quigley 2008).  For indexes used to make adjustments to training data for automated valuation models and other appraisal purposes, systematic revisions in same direction -- sustained downward adjustments over time, for example -- can result in biased property valuation estimates other propogated errors.  
+
+Figure 7 below shows the mean revision amount across the time period, by each model for the global models.  There are three key takeaways here: 1) The hedonic model has almost no revisions over time; 2) The Repeat Sales model has higher revisions in the earlier periods (final period aside) and these revisions are usually downward; and 3) the Random Forest approach suffers from the highest revisions in the later periods, all of which are upwards.
+
+The findings regarding the stability of the Hedonic model and the tendency for downward adjustments from the Repeat Sales approach, echo those of previous work (Clapp and Giacotto 1999; Clapham et al 2006).  The later period adjustment for the IRF model, mimic earlier findings that suggest that the random forest tends to lag in periods of high price growth (the later part of the study period).  
+
+**Figure 8: Mean Revision by Period (Global)**
 ```{r fig.height = 4, fig.width = 8}
  ggplot(results_$rev_g, aes(x = period, y = median, color = model, size = model)) +
   geom_line() +
@@ -367,7 +384,11 @@ lvol_sdf <- results_$vol_l %>%
   ggtitle('Mean Index Revision by Period (By Model)')
 ```
 
+To further explore the relationship between overall price movements and adjustments, Figure 9 plots the mean revision in each period (y-axis) against the percent change in prices during that period.  For the Repeat Sales model we see slighly greater downwards revisions in periods of high appreciation, though the trend is rather weak. This may suggest that 'flip' type sales are a greater cause of revision than the underlying market, similar to rationale provided by Clapp and Giacotto (1999).  
 
+As there are no real revisions for the hedonic model (middel panel) we see no noteworth trends here.  Add odds with Repeat Sales, the IRF approach shows significant positive correlation between revisions and the underlying price changes during the period. This supports the idea that the random forest lags during period of high appreciation, only to 'catch up' later via upward adjustments. 
+
+**Figure 9: Revision vs Price Movement (Global)**
 ```{r fig.height = 4, fig.width = 8}
 
 results_$rev_g$index = c(results_$index_g$index[2:84] - results_$index_g$index[1:83],
@@ -389,6 +410,11 @@ ggplot(results_$rev_g, aes(x = index, y = median, color = model)) +
   geom_rug(color = 'black', alpha = .4)
 ```
 
+Making the same comparisons -- revision vs period index change -- for the local indexes reveals a number of findings. One note for interpreting these plots: the X-axes vary between plots in order to fully capture the differences in volatility between the different models; the Y-axes are stable. First, the Hedonic approach (middle panel) remains very stable even with the greatly reduced sample sizes in the local models.  
+
+The Repeat Sales approach shows a much more pronounced negative relationship between price movements and revisions at the local scale.  In other words, the higher the underlying price movement, the greater the downward revisions that occur over time. Again, for the IRF model the opposite is true.  Higher price appreciation means higher upward revisions.  Nearly all revisions to the local IRF models are upwards, but this fact should be not be interpreted as suggesting IRF doesn't generally adjust downwards.  Rather, this study period is one of either flat or increasing home prices (as evidenced by the X-axis in the right hand panel) and the lack of downward revisions is likely a result of this fact.  
+
+**Figure 10: Revision vs Price Movement (Local)**
 ```{r fig.height = 4, fig.width = 8}
 
 ggplot(results_$rev_l, aes(x = indexdif, y = rev)) +
@@ -405,6 +431,11 @@ ggplot(results_$rev_l, aes(x = indexdif, y = rev)) +
   geom_rug(alpha = .05)
 
 ```
+
+## Discussion
+
+
+### Reproducibility
 
 
 ## References
@@ -432,6 +463,8 @@ Case, B. & Quigley, J. M. (1991). The dynamics of real estate prices. *The Revie
 Case, K. & Shiller, R. (1987). Prices of Single Family Homes Since 1970: New Indexes for Four Cities. *New England Economic Review*, Sept/Oct, 45-56.
 
 Case, K. & Shiller, R. (1989). The Efficiency of the Market for Single Family Homes. *The American Economic Review*, 79(1), 125-137.
+
+Clapham, E., Englund, P., Quigley, J. M., & Redfearn, C. L. (2006). Revisiting the past and settling the score: index revision for house price derivatives. *Real Estate Economics*, 34(2), 275-302.
 
 Clapp, J. M., & Giaccotto, C. (1999). Revisions in Repeat-Sales Price Indexes: Here Today, Gone Tomorrow? *Real Estate Economics*, 27(1), 79-104.
 
@@ -466,6 +499,8 @@ Haurin, D. R., & Hendershott, P. H. (1991). House price indexes: issues and resu
 Hill, R. (2013) Hedonic Price Indexes for Residential Housing: A Survey, Evaluation and Taxonomy. *Journal of Economic Surveys* 27(5), 879-914. [https://doi.org/10.1111/j.1467-6419.2012.00731.x](https://doi.org/10.1111/j.1467-6419.2012.00731.x)
 
 Hill, R. C., Knight, J. R., & Sirmans, C. F. (1997). Estimating capital asset price indexes. *Review of Economics and Statistics*, 79(2), 226-233.
+
+Hoesli, M., Giacotto, C., and Favarger, P. (1997) Three new real estate price indices for Geneva, Switzerland. *The Journal of Real Estate Finance and Economics*, 15(1), 93-109. 
 
 McMillen, D. (2012). Repeat sales as a matching estimator. *Real Estate Economics*, 40(4), 745-773.
 
