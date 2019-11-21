@@ -4,7 +4,7 @@ author:
  Andy Krause
  -- Zillow Group
  -- Seattle, WA
-date: "2019-11-19"
+date: "2019-11-20"
 output: 
   html_document:
       keep_md: yes
@@ -282,9 +282,23 @@ The Repeat Sales approach shows a much more pronounced negative relationship bet
 
 ## Discussion
 
+This paper introduces a new approach to estimating house price index through the use of an interpretable machine learning model.  More specifically, it applies a model agnostic interpretability method -- partial dependency -- to an inherently opaque maching learning technique -- a random forest. From this combination we are able to extract the change in prices over time, holding quality constant. This approach is particularly well suited conceptually for a house price index as it values individual properties once each period to create an index; essentially the purpose of a house price index. The index itself tracks very similarly to those produced by more traditional repeat sales and hedonic price approaches supporting the viability of this approach empirically as well.
 
-### Reproducibility
+The interpretable random forest (IRF) is then compared against two traditional methods for measures of accuracy, volatility and revision; both globally and across 25 smaller assessment regions in the City of Seattle. There are a number of major findings.
 
+In terms of accuracy at the global scale, all three models are relatively close with IRF the most accurate in a K-Fold validation and the hedonic model in a Forecast enviroment.  The Repeat Sales model remains the most un-biased, though this may be a product of Repeat Sales being used as the accuracy validation set.  Additional research is required to develop a more standardized approach for evaluating house price index accuracy.  At the local scale, both the IRF and hedonic model again show solid accuracy performance, however the Repeat Sales models at the local level degrade considerably.  
+
+Creating smooth indexes is where the IRF method proves very useful.  Volatility for the IRF model, even at the local scale is ranges from 1/6 of the other at the global to upwards of 1/70th at the local scale. Given that the accuracy metrics for the IRF are comparable, in terms of producing a smooth index with high fidelity to the market movements, the IRF approach shows promise.  
+
+Like the repeat sales approach, the IRF method suffers from revision as new data is added each period.  The scale of the revisions are slighly greater than the Repeat Sales at a Global Scale, though considerably smaller when the models are run locally.  Notably, the Repeat Sales model revises down during up periods while the IRF revises up during up periods.  For the Repeat Sales this is generally caused by data issues (short holds lacking constant quality Steele and Goy (1997)), while for the IRF model its a derivative of the Random Forest algorithm itself.  These revision to price movement correlations are amplified when moving from the global to the local model.  
+
+Overall, from an accuracy and a volatility perspective the IRF model is a viable replacement for the repeat sales model and is competitive with a hedonic approach depending on whether or not accuracy or volatility are prefered metrics to one another.  A deficiency of the IRF approach is the systematic, postively correlated revisions during periods of rapid market movements; it is here that the 'smoothness' of the resulting IRF models becomes a liability.  More work it needed in this direction.
+
+More broadly, this work highlights the viability of an inherently uninterpretable machine learning model (black box) paired with a model agnostic interpretability method to derive house price indexes.  While this work paired Random Forest with a partial dependency analysis, there is no reason other models -- such as a neural network -- could not be combined with other interpretability methods -- such as Shapley values.  As discussed in the Conceptual Framework section, all that is needed to create a house price index is a model of house prices, a method for understanding the data generating process in respect to the impact of time on price and an indexing method.  The traditional repeat sales and hedonic price approach are entrenched mostly out of convenience -- they offer directly interpretable beta coefficients -- and not, necessarily, out of any underlying superiority.  As machine learning approaches and their interpretability methods continue to develop, the status quo here will likely be continually challenged.  This is the first work to offer both a general framework for conceptualizing house price indexes in a machine learning context as well as offer a direct test of one approach across a number of important metrics -- accuracy, volatility and revision. 
+
+### Reproducibility and Software
+
+This work is completely reproducible.  All raw data and the code to transfrom them into the table and charts can be found at [https://www.github.com/anonreauthor/irf](www.github.com/anonreauthor/irf)^[NOTE to reviewers: This will be switched to my actual Github Repo after blind peer review.] All code is written in the R statistical language.  In addition to the `hpiR` package, which includes the custom functions for the IRF models and the wrapper functions that make for easy computation of accuracy, volatility and revision figures this work also directly uses the following R packages: `caret`(), `dplyr`(), `forecast`(), `ggplot`(), `imputeTS`(), `knitr`(), `lubridate`(), `pdp`(), `purrr`(), `ranger`(), `robustbase()`, `tidyr`() and `zoo`().  
 
 ## References
 
