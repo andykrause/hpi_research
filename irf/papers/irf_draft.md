@@ -298,7 +298,7 @@ More broadly, this work highlights the viability of an inherently uninterpretabl
 
 ### Reproducibility and Software
 
-This work is completely reproducible.  All raw data and the code to transfrom them into the table and charts can be found at [https://www.github.com/anonreauthor/irf](www.github.com/anonreauthor/irf)^[NOTE to reviewers: This will be switched to my actual Github Repo after blind peer review.] All code is written in the R statistical language.  In addition to the `hpiR` package, which includes the custom functions for the IRF models and the wrapper functions that make for easy computation of accuracy, volatility and revision figures this work also directly uses the following R packages: `caret`(), `dplyr`(), `forecast`(), `ggplot`(), `imputeTS`(), `knitr`(), `lubridate`(), `pdp`(), `purrr`(), `ranger`(), `robustbase()`, `tidyr`() and `zoo`().  
+This work is completely reproducible.  All raw data and the code to transfrom them into the table and charts can be found at [https://www.github.com/anonreauthor/irf](www.github.com/anonreauthor/irf)^[NOTE to reviewers: This will be switched to my actual Github Repo after blind peer review.] All code is written in the R statistical language.  In addition to the `hpiR` package, which includes the custom functions for the IRF models and the wrapper functions that make for easy computation of accuracy, volatility and revision figures this work also directly uses the following R packages: `caret`(Kuhn 2019), `dplyr`(Wickham et al 2019), `forecast`(Hyndman et al 2019), `ggplot`(Wickham 2016), `imputeTS`(Moritz and Bartz-Beielstein 2017), `knitr`(Xie 2019), `lubridate`(Grolemund and Wickham 2011), `pdp`(Greenwell 2017), `purrr`(Henry and Wickham 2019), `ranger`(Wright and Ziegler 2017), `robustbase`(Maechler et al 2019), `tidyr`(Wickham and Henry 2019) and `zoo`(Zeileis and Grothendieck 2005).  
 
 ## References
 
@@ -352,17 +352,29 @@ Goldstein, A., Kapelner, A., Bleich, J. and Pitkin, E. (2014) Peeking Inside the
 
 Goodman, A. C. (1978). Hedonic prices, price indices and housing markets. *Journal of Urban Economics*, 5, 471-484.
 
+Greenwell, B. (2017). pdp: An R Package for Constructing Partial Dependence Plots. *The R Journal*, 9(1), 421--436. URL https://journal.r-project.org/archive/2017/RJ-2017-016/index.html.
+
 Gregorutti, B., Bertrand, M., and Saint-Pierre, P. (2017) Correlation and variable importance in random forests. *Statistics and Computing*, 27(3), 659-678.
+
+Grolemund, G. and Wickham, H. (2011). Dates and Times Made Easy with lubridate. *Journal of Statistical Software*, 40(3), 1-25. URL: http://www.jstatsoft.org/v40/i03/.
 
 Guntermann, K. L., Liu, C., & Nowak, A. D. (2016). Price Indexes for Short Horizons, Thin Markets or Smaller Cities. *Journal of Real Estate Research*, 38(1), 93-127.
 
 Haurin, D. R., & Hendershott, P. H. (1991). House price indexes: issues and results. *Real Estate Economics*, 19(3), 259-269.
+
+Henry, L. and Wickham, H. (2019). purrr: Functional Programming Tools. R package version 0.3.2. https://CRAN.R-project.org/package=purrr
 
 Hill, R. (2013) Hedonic Price Indexes for Residential Housing: A Survey, Evaluation and Taxonomy. *Journal of Economic Surveys* 27(5), 879-914. [https://doi.org/10.1111/j.1467-6419.2012.00731.x](https://doi.org/10.1111/j.1467-6419.2012.00731.x)
 
 Hill, R. C., Knight, J. R., & Sirmans, C. F. (1997). Estimating capital asset price indexes. *Review of Economics and Statistics*, 79(2), 226-233.
 
 Hoesli, M., Giacotto, C., and Favarger, P. (1997) Three new real estate price indices for Geneva, Switzerland. *The Journal of Real Estate Finance and Economics*, 15(1), 93-109. 
+
+Hyndman R, Athanasopoulos G, Bergmeir C, Caceres G, Chhay L, O'Hara-Wild M, Petropoulos F, Razbash S, Wang E, Yasmeen F (2019). _forecast: Forecasting functions for time series and linear models_. R
+package version 8.7, <URL: http://pkg.robjhyndman.com/forecast>.
+
+
+Kuhn, M. (2019) caret: Classification and Regression Training. R Package. [https://CRAN.R-project.org/package=caret](https://CRAN.R-project.org/package=caret)
 
 McMillen, D. (2012). Repeat sales as a matching estimator. *Real Estate Economics*, 40(4), 745-773.
 
@@ -375,6 +387,8 @@ Mayer, M., Bourassa, S., Hoesli, M., and Scognamiglio, D. (2019). Estimation and
 Meese, R. A., & Wallace, N. (1997). The construction of residential housing price indices: a comparison of repeat-sales, hedonic-regression, and hybrid approaches. *The Journal of Real Estate Finance and Economics*, 14(1), 51-73.
 
 Molnar, C. (2019) *Interpretable Machine Learning: A Guide for Making Black Box Model Explainable*. Leanpub. ISBN 978-0-244-76852-2. [https://christophm.github.io/interpretable-ml-book/](https://christophm.github.io/interpretable-ml-book/)
+
+Moritz S, Bartz-Beielstein T (2017). “imputeTS: Time Series Missing Value Imputation in R.” _The R Journal_, *9*(1), 207-218. doi:10.32614/RJ-2017-009 (URL: https://doi.org/10.32614/RJ-2017-009).
 
 Munneke, H. J., & Slade, B. A. (2000). An empirical study of sample-selection bias in indices of commercial real estate. *The Journal of Real Estate Finance and Economics*, 21(1), 45-64.
 
@@ -396,6 +410,14 @@ Steele, M., & Goy, R. (1997). Short holds, the distributions of first and second
 
 Tofallis, C (2015). A better measure of relative prediction accuracy for model selection and model estimation. *Journal of the Operational Research Society*, 66, 1352-1362. doi:10.1057/jors.2014.103
 
-Write, M. and Ziegler, A. (2017) ranger: A Fast Implmentation of Random Forests for High Dimensional Data in C++ and R. *Journal of Statistical Software*, 77(1), 1-17. 
+Wickham, H. (2016) *ggplot2: Elegant Graphics for Data Analysis.* Springer-Verlag New York.
+  
+Wickham, H., Francois, R., Henry, L. and Muller, K. (2019). dplyr: A Grammar of Data Manipulation. [https://CRAN.R-project.org/package=dplyr](https://CRAN.R-project.org/package=dplyr)
 
+Wickham, H. and Henry, L. (2019). tidyr: Easily Tidy Data with 'spread()' and 'gather()' Functions. R package version 0.8.3. https://CRAN.R-project.org/package=tidyr
 
+Wright, M. and Ziegler, A. (2017) ranger: A Fast Implmentation of Random Forests for High Dimensional Data in C++ and R. *Journal of Statistical Software*, 77(1), 1-17. 
+
+Xie, Y. (2019). knitr: A General-Purpose Package for Dynamic Report Generation in R. R package version 1.23.
+
+Zeileis, A. and Grothendieck, G. (2005). zoo: S3 Infrastructure for Regular and Irregular Time Series. *Journal of Statistical Software*, 14(6), 1-27. doi:10.18637/jss.v014.i06
