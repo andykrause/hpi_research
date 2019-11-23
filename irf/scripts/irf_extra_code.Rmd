@@ -1,0 +1,190 @@
+---
+title: "extra_code"
+author: "Andy Krause"
+date: "November 23, 2019"
+output: html_document
+---
+
+### Temp
+
+Below here temporary analysis
+
+<!-- ### Spatial Dependence -->
+
+<!-- ```{r} -->
+
+<!--  accr_gdf$latitude <- he_df$latitude[match(accr_gdf$trans_id2, he_df$trans_id)] -->
+<!--  accr_gdf$longitude <- he_df$longitude[match(accr_gdf$trans_id2, he_df$trans_id)] -->
+
+<!--  accr_ldf$latitude <- he_df$latitude[match(accr_ldf$trans_id2, he_df$trans_id)] -->
+<!--  accr_ldf$longitude <- he_df$longitude[match(accr_ldf$trans_id2, he_df$trans_id)] -->
+
+<!--  hpiMI <- function(accr_df, model_type, accr_type, knn){ -->
+
+<!--    accr_df <- accr_df %>% dplyr::filter(model == model_type & accr == accr_type) %>% -->
+<!--      dplyr::distinct(pair_id, .keep_all = TRUE) -->
+<!--    accr_sf <- sf::st_as_sf(accr_df, coords= c('longitude', 'latitude')) -->
+<!--    nb_obj <- spdep::knn2nb(spdep::knearneigh(accr_sf, knn)) -->
+<!--    nbl_obj <- spdep::nb2listw(nb_obj, style="W", zero.policy=T) -->
+<!--    lm_obj <- lm(log_error ~ 1, data = accr_sf) -->
+<!--    mi <- spdep::lm.morantest(lm_obj, listw = nbl_obj) -->
+<!--    mi -->
+
+<!--  } -->
+
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+
+<!--  mi_5_kf <- list(grt_kf <- hpiMI(accr_gdf, 'rt', 'kf', 5), -->
+<!--                  ghe_kf <- hpiMI(accr_gdf, 'he', 'kf', 5), -->
+<!--                  grf_kf <- hpiMI(accr_gdf, 'rf', 'kf', 5), -->
+<!--                  lrt_kf <- hpiMI(accr_ldf, 'rt', 'kf', 5), -->
+<!--                  lhe_kf <- hpiMI(accr_ldf, 'he', 'kf', 5), -->
+<!--                  lrf_kf <- hpiMI(accr_ldf, 'rf', 'kf', 5)) -->
+<!--  mi_10_kf <- list(grt_kf <- hpiMI(accr_gdf, 'rt', 'kf', 10), -->
+<!--                  ghe_kf <- hpiMI(accr_gdf, 'he', 'kf', 10), -->
+<!--                  grf_kf <- hpiMI(accr_gdf, 'rf', 'kf', 10), -->
+<!--                  lrt_kf <- hpiMI(accr_ldf, 'rt', 'kf', 10), -->
+<!--                  lhe_kf <- hpiMI(accr_ldf, 'he', 'kf', 10), -->
+<!--                  lrf_kf <- hpiMI(accr_ldf, 'rf', 'kf', 10)) -->
+<!--  mi_25_kf <- list(grt_kf <- hpiMI(accr_gdf, 'rt', 'kf', 25), -->
+<!--                  ghe_kf <- hpiMI(accr_gdf, 'he', 'kf', 25), -->
+<!--                  grf_kf <- hpiMI(accr_gdf, 'rf', 'kf', 25), -->
+<!--                  lrt_kf <- hpiMI(accr_ldf, 'rt', 'kf', 25), -->
+<!--                  lhe_kf <- hpiMI(accr_ldf, 'he', 'kf', 25), -->
+<!--                  lrf_kf <- hpiMI(accr_ldf, 'rf', 'kf', 25)) -->
+<!--  mi_5_pr <- list(grt_pr <- hpiMI(accr_gdf, 'rt', 'pr', 5), -->
+<!--                  ghe_pr <- hpiMI(accr_gdf, 'he', 'pr', 5), -->
+<!--                  grf_pr <- hpiMI(accr_gdf, 'rf', 'pr', 5), -->
+<!--                  lrt_pr <- hpiMI(accr_ldf, 'rt', 'pr', 5), -->
+<!--                  lhe_pr <- hpiMI(accr_ldf, 'he', 'pr', 5), -->
+<!--                  lrf_pr <- hpiMI(accr_ldf, 'rf', 'pr', 5)) -->
+<!--  mi_10_pr <- list(grt_pr <- hpiMI(accr_gdf, 'rt', 'pr', 10), -->
+<!--                  ghe_pr <- hpiMI(accr_gdf, 'he', 'pr', 10), -->
+<!--                  grf_pr <- hpiMI(accr_gdf, 'rf', 'pr', 10), -->
+<!--                  lrt_pr <- hpiMI(accr_ldf, 'rt', 'pr', 10), -->
+<!--                  lhe_pr <- hpiMI(accr_ldf, 'he', 'pr', 10), -->
+<!--                  lrf_pr <- hpiMI(accr_ldf, 'rf', 'pr', 10)) -->
+<!--  mi_25_pr <- list(grt_pr <- hpiMI(accr_gdf, 'rt', 'pr', 25), -->
+<!--                  ghe_pr <- hpiMI(accr_gdf, 'he', 'pr', 25), -->
+<!--                  grf_pr <- hpiMI(accr_gdf, 'rf', 'pr', 25), -->
+<!--                  lrt_pr <- hpiMI(accr_ldf, 'rt', 'pr', 25), -->
+<!--                  lhe_pr <- hpiMI(accr_ldf, 'he', 'pr', 25), -->
+<!--                  lrf_pr <- hpiMI(accr_ldf, 'rf', 'pr', 25)) -->
+
+<!--  mi_ <- list(kf = list(mi5 = mi_5_kf, -->
+<!--                        mi10 = mi_10_kf, -->
+<!--                        mi25 = mi_25_kf), -->
+<!--              pr = list(mi5 = mi_5_pr, -->
+<!--                        mi10 = mi_10_pr, -->
+<!--                        mi25 = mi_25_pr)) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+
+<!--  mi_df <- data.frame(model = rep(c('rt', 'he', 'rf'), 12), -->
+<!--                      accr = c(rep('kf', 18), rep('pr', 18)), -->
+<!--                      scale = rep(c(rep('global', 3), rep('local', 3)), 6), -->
+<!--                      knn = rep(c(rep(5,6), rep(10,6), rep(25, 6)), 2), -->
+<!--                      mi = c(as.numeric(unlist(lapply(mi_$kf,  -->
+<!--                                   function(x) lapply(x, function(x) x$statistic)))), -->
+<!--                                 as.numeric(unlist(lapply(mi_$kf,  -->
+<!--                                   function(x) lapply(x, function(x) x$statistic)))))) %>% -->
+<!--   dplyr::mutate(knn = as.factor(knn)) -->
+
+<!--   mi_pdf <- mi_df %>% -->
+<!--   dplyr::mutate(model = ifelse(model == 'he', 'Hedonic', ifelse(model == 'rt', "RepeatTrans",  -->
+<!--                                                                 'RandomForest')), -->
+<!--                 accr = ifelse(accr == 'kf', 'K-Fold', 'Prediction')) %>% -->
+<!--   dplyr::mutate(model = forcats::fct_relevel(as.factor(model),  -->
+<!--                                              c('RepeatTrans', 'Hedonic', 'RandomForest'))) -->
+
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!--   ggplot(mi_pdf,  -->
+<!--          aes(x = scale, y = mi, group = knn, color = knn)) +  -->
+<!--     geom_point() +  -->
+<!--     facet_grid(model~accr) +  -->
+<!--     geom_line() +  -->
+<!--     scale_color_manual(name = 'KNN Count', values = c('gray30', 'gray50', 'gray70')) +  -->
+<!--     xlab('\n Geographic Scale of Analysis') +  -->
+<!--     ylab("Moran's I Statistic\n") + -->
+<!--     theme(legend.position = 'bottom', -->
+<!--           plot.title = element_text(hjust = 0.5)) +  -->
+<!--     annotate("rect", xmin = 0.7, xmax = 2.3, ymin = -2, ymax = 1.96, alpha = .2) + -->
+<!--     annotate('text', x = 1.5, y = -.8, label = 'Zone of Randomness', size = 2) +  -->
+<!--     coord_cartesian(ylim = c(-3, 8)) +  -->
+<!--     ggtitle('Spatial Dependence of Errors by Accuracy Type and Model') -> -->
+<!--   spdep_plot -->
+
+<!-- ``` -->
+
+<!-- ```{r} -->
+
+<!-- gis_df <- he_df %>% -->
+<!--   dplyr::left_join(rt_df %>% dplyr::select(prop_id, pair_id),  -->
+<!--                    by = 'prop_id') %>% -->
+<!--   dplyr::distinct(trans_id, .keep_all = TRUE) -->
+<!-- write.csv(gis_df, row.names = FALSE, file = '~/downloads/gis_df.csv') -->
+
+<!-- sea_sf <- sf::st_read(file.path(getwd(),"/data/gis/seattle_boundary.shp")) -->
+<!-- seaass_sf <- sf::st_read(file.path(getwd(),"/data/gis/seattle_assessment_areas.shp")) -->
+<!-- seaass_sf <- seaass_sf %>% -->
+<!--   dplyr::filter(id_3 > 0) %>% -->
+<!--   dplyr::select(area = id_3, geometry) -->
+
+<!-- sales_sf <- sf::st_as_sf(gis_df, coords = c("longitude", "latitude"),  -->
+<!--                  crs = 4326, agr = "constant") -->
+
+
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+
+<!-- ggplot(seaass_sf) +  -->
+<!--   geom_sf(fill='gray80', color = 'white') +  -->
+<!--   geom_sf(data = sea_sf, color = 'black', size = 1, fill = NA) + -->
+<!--   theme_void() +  -->
+<!--   theme(panel.grid.major = element_line(colour = "white"), -->
+<!--           plot.title = element_text(hjust = 0.5)) -> -->
+<!-- base_map -->
+
+<!-- base_map_x <- base_map + -->
+<!--   ggtitle("SFR Assessment Areas") -->
+
+
+<!-- ``` -->
+
+<!-- ```{r} -->
+
+<!-- base_map +  -->
+<!--   geom_sf(data = sales_sf, color = 'black', size = .1, alpha = .5)  + -->
+<!--   geom_sf(data = seaass_sf, color = 'white', fill = NA) + -->
+<!--     geom_sf(data = sea_sf, color = 'black', size = 1, fill = NA) + -->
+<!--   ggtitle("All Sales (43,074)") -> -->
+<!-- sales_map -->
+
+<!-- ``` -->
+
+<!-- ```{r} -->
+
+<!-- base_map +  -->
+<!--   geom_sf(data = sales_sf %>% dplyr::filter(!is.na(pair_id)),  -->
+<!--           color = 'navy', size = .1, alpha = .5) + -->
+<!--     geom_sf(data = seaass_sf, color = 'white', fill = NA) + -->
+<!--     geom_sf(data = sea_sf, color = 'black', size = 1, fill = NA) + -->
+<!--   ggtitle("Repeat Sales (4,067)") -> -->
+<!-- rtsales_map -->
+
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- png(file.path(getwd(), 'papers','rf_pdp', 'maps.png'), width=1080, height = 450) -->
+<!--   all_map <- gridExtra::grid.arrange(base_map_x, sales_map, rtsales_map, ncol=3) -->
+<!--   all_map -->
+<!-- dev.off() -->
+<!-- ``` -->
