@@ -1,7 +1,7 @@
 ---
 title: "IRF Paper: Comparative Analysis"
 author: "Andy Krause"
-date: "August 24, 2019"
+date: "November 22, 2019"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -143,14 +143,15 @@ We start by extracting the global indexes from the pre-computed objects.
  index_gdf <- dplyr::bind_rows(data.frame(Model = 'Repeat Sales', 
                                           index = rt_hpi$index$value, 
                                           time = 1:84),
-                              data.frame(Model = 'Hedonic', 
+                              data.frame(Model = 'Hedonic Price', 
                                          index = hed_hpi$index$value, 
                                          time = 1:84),
-                              data.frame(Model = 'IRF', 
+                              data.frame(Model = 'Interpretable Random Forest', 
                                          index = rf_hpi$index$value, 
                                          time = 1:84)) %>%
-  dplyr::mutate(Model = forcats::fct_relevel(as.factor(Model), 
-                                             c('Repeat Sales', 'Hedonic', 'IRF')))
+  dplyr::mutate(model = forcats::fct_relevel(as.factor(Model), 
+                                             c('Repeat Sales', 'Hedonic Price', 
+                                               'Interpretable Random Forest')))
 ```
 
 To prepare the global indexes to be added to the local indexes, we add an area number to it (0)
@@ -159,7 +160,7 @@ To prepare the global indexes to be added to the local indexes, we add an area n
   index_gdf <- index_gdf %>% 
     dplyr::mutate(region = 0,
                   Model = forcats::fct_relevel(as.factor(index_gdf$Model), 
-                                             c('Repeat Sales', 'Hedonic', 'IRF')))
+                                             c('Repeat Sales', 'Hedonic Price', 'Interpretable Random Forest')))
 ```
 
 We then extract all of the local indexes.
@@ -173,17 +174,17 @@ We then extract all of the local indexes.
                                                    region = y,
                                                    index = x$rt_hpi$index$value,
                                                    time = 1:84),
-                                        data.frame(Model = 'Hedonic',
+                                        data.frame(Model = 'Hedonic Price',
                                                    region = y,
                                                    index = x$he_hpi$index$value,
                                                    time = 1:84),
-                                        data.frame(Model = 'IRF',
+                                        data.frame(Model = 'Interpretable Random Forest',
                                                    region = y,
                                                    index = x$rf_hpi$index$value,
                                                    time = 1:84))}) %>%
   dplyr::bind_rows() %>%
   dplyr::mutate(Model = forcats::fct_relevel(as.factor(Model), 
-                                             c('Repeat Sales', 'Hedonic', 'IRF')))
+                                             c('Repeat Sales', 'Hedonic Price', 'Interpretable Random Forest')))
 ```
 
 ## Accuracy
@@ -227,7 +228,7 @@ Next, we create summary and print data.frame from this data
   dplyr::rename(Model = model) %>%
   dplyr::mutate(MAPE_KF = round(MAPE_KF, 4), MPE_KF = round(MPE_KF, 4),
                 MAPE_PR = round(MAPE_PR, 4), MPE_PR = round(MPE_PR, 4),
-                Model = c('Hedonic', 'RandomForest', 'RepeatTrans'))
+                Model = c('Hedonic Price', 'Interpretable Random Forest', 'Repeat Sales'))
 
   knitr::kable(gaccr_pdf[c(3,1,2), ])
   
@@ -305,7 +306,7 @@ A summary and a printable data.frame are built.
   dplyr::rename(Model = model) %>%
   dplyr::mutate(MAPE_KF = round(MAPE_KF, 4), MPE_KF = round(MPE_KF, 4),
                 MAPE_PR = round(MAPE_PR, 4), MPE_PR = round(MPE_PR, 4),
-                Model = c('Hedonic', 'RandomForest', 'RepeatTrans'))
+                Model = c('Hedonic Price', 'Interpretable Random Forest', 'Repeat Sales'))
 
   knitr::kable(laccr_pdf[c(3,1,2), ])
   
@@ -320,7 +321,8 @@ vol_gdf <- data.frame(model = c('rt', 'hed', 'rf'),
                       mean_volatility = c(rt_hpi$index$volatility$mean,
                                             hed_hpi$index$volatility$mean,
                                             rf_hpi$index$volatility$mean))
-  knitr::kable(vol_gdf %>% dplyr::mutate(Model = c('RepeatTrans', 'Hedonic', 'RandomForest'),
+  knitr::kable(vol_gdf %>% dplyr::mutate(Model = c('Repeat Sales', 'Hedonic Price', 
+                                                   'Interpretable Random Forest'),
                                          Volatility = round(mean_volatility, 4)) %>%
                  dplyr::select(Model, Volatility))
   
@@ -329,11 +331,11 @@ vol_gdf <- data.frame(model = c('rt', 'hed', 'rf'),
 To aid the plot, we create an annotation layer
 
 ```{r}
-  ganno_df <- data.frame(Model = c('Repeat Sales', 'Hedonic', 'IRF'),
+  ganno_df <- data.frame(Model = c('Repeat Sales', 'Hedonic Price', 'Interpretable Random Forest'),
                         xpos = 73, ypos = 105,
                         lab = paste0('Vol: ', round(vol_gdf$mean_volatility, 3))) %>%
   dplyr::mutate(Model = forcats::fct_relevel(as.factor(Model), 
-                                             c('Repeat Sales', 'Hedonic', 'IRF')))
+                                             c('Repeat Sales', 'Hedonic Price', 'Interpretable Random Forest')))
 ```
 
 Plot comparing indexes and volatilities
@@ -379,11 +381,11 @@ lvol_sdf <- vol_ldf %>%
 Creating an annotation layer for the plot
 
 ```{r}
-  lanno_df <- data.frame(Model = c('Hedonic', 'IRF', 'Repeat Sales'),
+  lanno_df <- data.frame(Model = c('Hedonic Price', 'Interpretable Random Forest', 'Repeat Sales'),
                          xpos = 67, ypos = 67, region = 0, 
                          lab = paste0('Vol: ', round(lvol_sdf$mean, 3))) %>%
   dplyr::mutate(Model = forcats::fct_relevel(as.factor(Model), 
-                                             c('Repeat Sales', 'Hedonic', 'IRF')))
+                                             c('Repeat Sales', 'Hedonic Price', 'Interpretable Random Forest')))
 ```
 
 Plotting local indexes with volatility. 
@@ -416,9 +418,9 @@ Get the global revision numbers, by period.
   grev_gdf <- dplyr::bind_rows(rt_series$revision$period %>% 
                                 dplyr::mutate(model = 'Repeat Sales'),
                                hed_series$revision$period %>% 
-                                dplyr::mutate(model = 'Hedonic'),
+                                dplyr::mutate(model = 'Hedonic Price'),
                                rf_series$revision$period %>% 
-                                dplyr::mutate(model = 'IRF'))
+                                dplyr::mutate(model = 'Interpretable Random Forest'))
 ```
 
 Local, mean revision numbers
@@ -427,7 +429,8 @@ Local, mean revision numbers
   grev_mdf <- purrr::map2(.x = geo_results,
                          .y = names(geo_results),
                          .f = function(x, y){
-                                data.frame(model = c('Repeat Sales', 'Hedonic', 'IRF'),
+                                data.frame(model = c('Repeat Sales', 'Hedonic Price', 
+                                                     'Interpretable Random Forest'),
                                            region = y,
                                            revision = c(x$rt_series$revision$mean,
                                                         x$he_series$revision$mean,
@@ -463,9 +466,9 @@ Add index numbers to revision numbers
 grev_gdf$index = c(index_gdf$index[2:84] - index_gdf$index[1:83],
                   index_gdf$index[86:168] - index_gdf$index[85:167],
                   index_gdf$index[170:252] - index_gdf$index[169:251])
-grev_gdf$model <- c(rep('RepeatTrans', 83), rep('Hedonic', 83), rep('RandomForest', 83))
+grev_gdf$model <- c(rep('Repeat Sales', 83), rep('Hedonic Price', 83), rep('Intepretable Random Forest', 83))
 grev_gdf$model <- forcats::fct_relevel(as.factor(grev_gdf$model),
-                                             c('RepeatTrans', 'Hedonic', 'RandomForest'))
+                                             c('Repeat Sales', 'Hedonic Price', 'Interpretable Random Forest'))
 
 ```
 
@@ -494,24 +497,24 @@ Next, we extract local revision and index numbers
 rev_ldf <- purrr::map2(.x = geo_results,
                        .y = names(geo_results),
                        .f = function(x, y){
-                         dplyr::bind_rows(data.frame(model = 'RepeatTrans',
+                         dplyr::bind_rows(data.frame(model = 'Repeat Sales',
                                                      region = y,
                                                      indexdif = x$rt_hpi$index$value[2:84] -
                                                        x$rt_hpi$index$value[1:83],
                                                      rev = x$rt_series$revision$period$mean),
-                                          data.frame(model = 'Hedonic',
+                                          data.frame(model = 'Hedonic Price',
                                                      region = y,
                                                      indexdif = x$he_hpi$index$value[2:84] -
                                                        x$he_hpi$index$value[1:83],
                                                      rev = x$he_series$revision$period$mean),
-                                          data.frame(model = 'RandomForest',
+                                          data.frame(model = 'Interpretable Random Forest',
                                                      region = y,
                                                      indexdif = x$rf_hpi$index$value[2:84] -
                                                        x$rf_hpi$index$value[1:83],
                                                      rev = x$rf_series$revision$period$mean))}) %>%
   dplyr::bind_rows() %>%
   dplyr::mutate(model = forcats::fct_relevel(as.factor(model),
-                                             c('RepeatTrans', 'Hedonic', 'RandomForest')))
+                                             c('Repeat Sales', 'Hedonic Price', 'Interpretable Random Forest')))
 ```
 
 Plot revision numbers against index growth
