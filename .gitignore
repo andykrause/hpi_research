@@ -52,3 +52,6 @@ rsconnect/
 irf/data/
 short_hold_bias/data/
 
+.Rproj.user
+*.png
+

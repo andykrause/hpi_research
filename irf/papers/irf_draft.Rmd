@@ -16,7 +16,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
   knitr::opts_chunk$set(echo = FALSE, collapse=TRUE, messages=FALSE, eval=TRUE, warning = FALSE, comment = FALSE, message = FALSE)
-  knitr::opts_knit$set(root.dir = "~/projects/hpi_research/irf/papers")
+  #knitr::opts_knit$set(root.dir = "~/projects/hpi_research/irf/papers")
 ```
 
 ```{r quiet_package_load, echo=FALSE}
