@@ -4,7 +4,7 @@ author:
  Andy Krause
  -- Zillow Group
  -- Seattle, WA
-date: "2019-11-22"
+date: "2019-11-23"
 output: 
   html_document:
       keep_md: yes
