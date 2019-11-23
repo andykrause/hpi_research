@@ -572,4 +572,4 @@ We then save these results for later analysis as well.
     saveRDS(geo_results, file = file.path(getwd(), '/data/geo_results.RDS'))
 ```
 
-Further analysis and comparison can be found in the `full_comparison.rmd` script. 
+Further analysis and comparison can be found in the `irf_comparison_script.rmd` file. 
