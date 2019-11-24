@@ -1,6 +1,6 @@
 ---
 title: "A Machine Learning Approach to House Price Indexes"
-author:  
+author: "Andy Krause" 
 date: "`r Sys.Date()`"
 output: 
   pdf_document:
@@ -12,7 +12,6 @@ editor_options:
 
 ```{r setup, include=FALSE}
   knitr::opts_chunk$set(echo = FALSE, collapse=TRUE, messages=FALSE, eval=TRUE, warning = FALSE, comment = FALSE, message = FALSE)
-  #knitr::opts_knit$set(root.dir = "~/projects/hpi_research/irf/papers")
 ```
 
 ```{r quiet_package_load, echo=FALSE}
@@ -25,13 +24,11 @@ editor_options:
 
 ```{r results_load, echo=FALSE}
   results_ <- readRDS('../data/results_.RDS') 
-
-  #data_ <- readRDS(file.path(getwd(), 'data', 'data_.rds')) 
 ```
 
 ### Abstract
 
-The existing approaches for generating house price indexes (HPIs) are almost exclusively found in the realm of traditional statistical modeling. This paper offers a new approach using a maching learning model class -- random forests -- combined with a model-agnostic interpretability method -- partial dependency -- to derive an HPI. After providing an example of this approach, I then test the Interpretable Random Forest (IRF) against indexes derived from repeat sales and hedonic price models.  Using data from the City of Seattle, this comparison suggests that the IRF is competitive (and occasionally superior to) popular existing methods across measures of accuracy, volatility and revision at both a city-wide and a neighborhood scale.  
+The existing approaches for generating house price indexes (HPIs) are almost exclusively found in the realm of traditional statistical modeling. This paper offers a new approach using a machine learning model class -- random forests -- combined with a model-agnostic interpretability method -- partial dependency -- to derive an HPI. After providing an example of this approach, I then test the Interpretable Random Forest (IRF) against indexes derived from repeat sales and hedonic price models.  Using data from the City of Seattle, this comparison suggests that the IRF is competitive (and occasionally superior to) popular existing methods across measures of accuracy, volatility and revision at both a city-wide and a neighborhood scale.  
 
 ## Introduction
 
@@ -169,7 +166,7 @@ In this section, I describe the data used in the empirical tests that follow as 
 
 The data for this study originate from the King County Assessor. All transactions of single family and townhome properties within the city of Seattle during the January 2010 through December 2016 period are included.  The data are found in the `hpiR` R package and can be freely downloaded and accessed with this package. The transactions were filtered to keep only arms-length transactions based on the County's instrument, sale reason and warning codes.  Additionally, any sale that sold more than once and underwent a major renovation between sales was removed as these transactions violate the constant quality assumptions made in the repeat sales models estimated below. Finally, a very small number of outlying observations -- those with sales under $150,000 and over $10,000,000 were removed. 
 
-The data includes the following information for all 43,313 transactions:
+The data includes the following information for all 43,074 transactions remainder after the filtering applied above:
 
 &nbsp;
 
@@ -202,7 +199,7 @@ Within the data, there are 4,067 sale-resale pairs. This set of repeat transacti
 
 ### Local Sub-samples
 
-In addition to comparison on performance at the global (city of Seattle) level, I also break the data into the King County Assessor's 25 major residential tax assessment zones (Figure 3).  Using the tax assessment zones is likely preferable to common disaggregating regions such as Zip Codes as the tax assessment zones are relatively balanced in total housing unit counts and purposefully constructed to follow local housing submarket boundaries. Of the 25 zones, 22 of them have between 1,100 and 2,300 sales over the 7-year period of this study.  The remaining three have 747, 2792 and 2827 sales.  
+In addition to comparison on performance at the global (city of Seattle) level, I also break the data into the King County Assessor's 25 major residential tax assessment zones (Figure 3).  Using the tax assessment zones is likely preferable to common disaggregating regions such as Zip Codes as the tax assessment zones are relatively balanced in total housing unit counts and purposefully constructed to follow local housing submarket boundaries. Of the 25 zones, 22 of them have between 1,100 and 2,300 sales over the 7-year period of this study.  The remaining three have 747, 2,792 and 2,827 sales.  
 
 &nbsp;
 
@@ -366,7 +363,7 @@ $V = sd(D_{t, t+1, t+2})$ where $D = index_k - index_{k-1}$
 
 This is an appealing metric as consistent, monotonic changes over a four month span -- the three measures of period changes -- will produce very low standard deviations.  On the contrary, wildly fluctuating indexes with irregular directionally movements will produce high volatility measures. 
 
-Using the volatility metric defined above, we can measure the differences in 'smoothness' of the three approaches (Figure 5).  While the repeat sales and hedonic price methods have differences in their period to period movements, overall their levels of volatility are essentially the same.  The volatility of the IRF model is 1/6 that of the others, confirming what we saw visually in Figure 4.  
+Using the volatility metric defined above, we can measure the differences in 'smoothness' of the three approaches (Figure 5).  While the repeat sales and hedonic price methods have differences in their period to period movements, overall their levels of volatility are similar.  The volatility of the IRF model is 1/5 to 1/6 that of the others, confirming what we saw visually in Figure 4.  
 
 &nbsp;
 
@@ -448,7 +445,9 @@ The final metric, revision, is the amount that previous index values change as a
 
 Within this work I measure period-wise revision as the individual mean of the revisions for each period in the index as it expands out to cover the entire time period. The revision for period $k$ is: 
 
-$R_k = \sum{(K_j - K_{j-1})}/j$ where $j$ is the new index being generated after each addition of data. 
+$R_k = \sum{(K_j - K_{j-1})}/j$ 
+
+where $j$ is the new index being generated after each addition of data. 
 
 In the index analyzed below, I begin each with a 24-month period of training data to create the first index.  I then add in data from period 25 and recalculate the index, measuring the revision for periods 1 to 24. The same is then done for period 26 (measuring revision for periods 1 to 25) and on up through period 84.  There is no revision number for period 84 as it is only estimated once. 
 
@@ -549,7 +548,7 @@ The interpretable random forest (IRF) is then compared against the two tradition
 
 In terms of accuracy at the global scale, all three models are relatively close with IRF the most accurate in a k-fold validation and the hedonic model in a forecast environment.  The repeat sales model remains the most un-biased, though this may be a product of repeat sales being used as the accuracy validation set.  Additional research is required to develop a more standardized approach for evaluating house price index accuracy.  At the local scale, both the IRF and hedonic price methods again show solid accuracy performance in contrast to the repeat sales models which degrade considerably at the local level.  
 
-Index smoothness is where the IRF method proves particularly adept.  Volatility for the IRF model ranges from 1/6 of the others at the global to upwards of 1/70th at the local scale. Given that the accuracy metrics for the IRF are comparable, in terms of producing a smooth index with high fidelity to the market movements, the IRF approach offers a marked improvement.  
+Index smoothness is where the IRF method proves particularly adept.  Volatility for the IRF model ranges from 1/6 of the others at the global to upwards of 1/75th at the local scale. Given that the accuracy metrics for the IRF are comparable, in terms of producing a smooth index with high fidelity to the market movements, the IRF approach offers a marked improvement.  
 
 Like the repeat sales approach, the IRF method suffers from revision as new data is added each period.  The scale of the revisions are slightly greater than the repeat sales at a global scale, though considerably smaller, relatively, when the models are run locally.  Notably, the repeat sales model revises down during periods of appreciation while the IRF revises up during these periods of price growth. For the repeat sales this is generally caused by data issues (short holds lacking constant quality Steele and Goy (1997)), while for the IRF model it is likely a derivative of the random forest algorithm itself. The revisions to price movement correlations are amplified when moving from the global to the local model.  
 
@@ -559,10 +558,12 @@ More broadly, this work highlights the viability of an inherently uninterpretabl
 
 ### Reproducibility and Software
 
-This work is completely reproducible.  All raw data, code and general instructions to exactly recreate the analyses above is found at [https://www.github.com/anonreauthor/irf](www.github.com/anonreauthor/irf)^[NOTE to reviewers: This will be switched to my actual Github Repository after blind peer review.] All code is written in the R statistical language. In addition to the `hpiR` package, which includes the custom functions for the IRF models and the wrapper functions that make for easy computation of accuracy, volatility and revision figures this work also directly uses the following R packages: `caret`(Kuhn 2019), `dplyr`(Wickham et al 2019), `forecast`(Hyndman et al 2019), `ggplot`(Wickham 2016), `imputeTS`(Moritz and Bartz-Beielstein 2017), `knitr`(Xie 2019), `lubridate`(Grolemund and Wickham 2011), `pdp`(Greenwell 2017), `purrr`(Henry and Wickham 2019), `ranger`(Wright and Ziegler 2017), `robustbase`(Maechler et al 2019), `tidyr`(Wickham and Henry 2019) and `zoo`(Zeileis and Grothendieck 2005).  
+This work is completely reproducible.  All raw data, code and general instructions to exactly recreate the analyses above is found at [https://www.github.com/anonymousreauthor/irf_house_price_index](www.github.com/anonymousreauthor/irf_house_price_index)^[NOTE to reviewers: This will be switched to my actual Github Repository after blind peer review.] All code is written in the R statistical language. In addition to the `hpiR` package, which includes the custom functions for the IRF models and the wrapper functions that make for easy computation of accuracy, volatility and revision figures this work also directly uses the following R packages: `caret`(Kuhn 2019), `dplyr`(Wickham et al 2019), `forecast`(Hyndman et al 2019), `ggplot`(Wickham 2016), `imputeTS`(Moritz and Bartz-Beielstein 2017), `knitr`(Xie 2019), `lubridate`(Grolemund and Wickham 2011), `pdp`(Greenwell 2017), `purrr`(Henry and Wickham 2019), `ranger`(Wright and Ziegler 2017), `robustbase`(Maechler et al 2019), `tidyr`(Wickham and Henry 2019) and `zoo`(Zeileis and Grothendieck 2005).  
 
 &nbsp;
 &nbsp;
+
+\pagebreak
 
 ## References
 
@@ -641,7 +642,6 @@ Hyndman, R., Akram, M. and Archibald, B. (2008) The admissible parameter space f
 
 Hyndman R, Athanasopoulos G, Bergmeir C, Caceres G, Chhay L, O'Hara-Wild M, Petropoulos F, Razbash S, Wang E, Yasmeen F (2019). _forecast: Forecasting functions for time series and linear models_. R
 package version 8.7, <URL: http://pkg.robjhyndman.com/forecast>.
-
 
 Kuhn, M. (2019) caret: Classification and Regression Training. R Package. [https://CRAN.R-project.org/package=caret](https://CRAN.R-project.org/package=caret)
 
