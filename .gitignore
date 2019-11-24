@@ -5,6 +5,7 @@
 # Session Data files
 .RData
 .RDS
+.rds
 .DS_store
 
 # User-specific files
