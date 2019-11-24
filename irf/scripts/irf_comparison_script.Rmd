@@ -1,6 +1,6 @@
 ---
 title: "IRF Paper: Comparative Analysis"
-author: "Andy Krause"
+author: ""
 date: "November 22, 2019"
 output: html_document
 editor_options: 
@@ -13,7 +13,6 @@ This script should be run only after executing the "IRF: Index Generation" scrip
 
 ```{r setup, include=FALSE}
   knitr::opts_chunk$set(echo = TRUE)
-  #knitr::opts_knit$set(root.dir = "~/projects/hpi_research/irf/papers")
   setwd(file.path(getwd(), 'papers'))
 ```
 

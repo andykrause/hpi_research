@@ -1,7 +1,7 @@
 ---
 title: "Index Generation"
-author: "Andy Krause"
-date: "August 24, 2019"
+author: ''
+date: "November 21, 2019"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -15,10 +15,12 @@ This script generates the index and series necessary to perform the comparisons 
 knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 ```
 
+
 We begin by loading the necessary libraries.  All three of these are found on CRAN and should be installable via the `install.packages()` function.  
 
 ```{r }
-  library(hpiR)
+  library(hpiR) # Ensure this is v 0.3.0 from Github, not 0.2.0 from CRAN
+  if(packageVersion('hpiR') != '0.3.0') cat('Please download version 0.3.0 from Github.')
   library(tidyverse)
   library(mlr)
 ```
@@ -542,11 +544,6 @@ modelComparison <- function(data_obj,
        rf_series = rf_series[c('revision', 'pr_accuracy')],
        summary = NULL)
 }
-
-
-
-
-
 
 ```
 
