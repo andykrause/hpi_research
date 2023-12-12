@@ -2,8 +2,8 @@
 title: "A Multi-Criteria Evaluation of House Price Indexes\n\n"
 subtitle:   
 author:
-  - Andy Krause* (Zillow Group) andykr@zillowgroup.com
-  - Reid Johnson (Zillow Group) reidj@zillowgroup.com
+  - Andy Krause* -- Zillow Group -- andykr @ zillowgroup.com
+  - Reid Johnson -- Zillow Group -- reidj @ zillowgroup.com
 date: "`r Sys.Date()`"
 output: 
   html_document:
@@ -418,7 +418,7 @@ Overall, our recommendations are the following:
 
 ### Reproducibility and Software
 
-This work is completely reproducible.  All raw data, code and general instructions to exactly recreate the analyses above is found at [https://www.github.com/anonymousreauthor/irf_house_price_index](www.github.com/anonymousreauthor/irf_house_price_index). All code is written in the R statistical language. In addition to the `hpiR` package, which includes the custom functions for the IRF models and the wrapper functions that make for easy computation of accuracy, volatility and revision figures this work also directly uses the following R packages: `caret`(Kuhn 2019), `dplyr`(Wickham et al 2019), `forecast`(Hyndman et al 2019), `ggplot`(Wickham 2016), `imputeTS`(Moritz and Bartz-Beielstein 2017), `knitr`(Xie 2019), `lubridate`(Grolemund and Wickham 2011), `pdp`(Greenwell 2017), `purrr`(Henry and Wickham 2019), `ranger`(Wright and Ziegler 2017), `robustbase`(Maechler et al 2019), `tidyr`(Wickham and Henry 2019) and `zoo`(Zeileis and Grothendieck 2005).  
+This work is completely reproducible.  All raw data, code and general instructions to exactly recreate the analyses above is found at [https://www.github.com/andykrause/irf](www.github.com/andykrause/irf). All code is written in the R statistical language. In addition to the `hpiR` package, which includes the custom functions for the IRF models and the wrapper functions that make for easy computation of accuracy, volatility and revision figures this work also directly uses the following R packages: `caret`(Kuhn 2019), `dplyr`(Wickham et al 2019), `forecast`(Hyndman et al 2019), `ggplot`(Wickham 2016), `imputeTS`(Moritz and Bartz-Beielstein 2017), `knitr`(Xie 2019), `lubridate`(Grolemund and Wickham 2011), `pdp`(Greenwell 2017), `purrr`(Henry and Wickham 2019), `ranger`(Wright and Ziegler 2017), `robustbase`(Maechler et al 2019), `tidyr`(Wickham and Henry 2019) and `zoo`(Zeileis and Grothendieck 2005).  
 
 &nbsp;
 &nbsp;
