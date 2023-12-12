@@ -27,19 +27,23 @@ We begin by loading the necessary libraries.  All three of these are found on CR
 Next we load the pre-computed data, index and series objects from `/index_generation_script.rmd`. 
 
 ```{r}
-  rt_df <- readRDS(file = file.path(getwd(), '../data/rt_df.RDS'))
-  he_df <- readRDS(file = file.path(getwd(), '../data/he_df.RDS'))
-
-  rt_hpi <- readRDS(file = file.path(getwd(), '../data/rt_hpi.RDS'))
-  rt_series <- readRDS(file = file.path(getwd(), '../data/rt_series.RDS'))
-
-  hed_hpi <- readRDS(file = file.path(getwd(), '../data/he_hpi.RDS'))
-  hed_series <- readRDS(file = file.path(getwd(), '../data/he_series.RDS'))
-
-  rf_hpi <- readRDS(file = file.path(getwd(), '../data/rf_hpi.RDS'))
-  rf_series <- readRDS(file = file.path(getwd(), '../data/rf_series.RDS'))
+  exp_name = 'a2c822_ee46ba_96_24'
   
-  geo_results <- readRDS(file = file.path(getwd(), '../data/geo_results.RDS'))
+  rt_df <- readRDS(file = file.path(getwd(), 'data', exp_name, 'rt_df.RDS'))
+  he_df <- readRDS(file = file.path(getwd(), 'data', exp_name, 'he_df.RDS'))
+
+  rt_hpi <- readRDS(file = file.path(getwd(), 'data', exp_name, 'rt_hpi.RDS'))
+  rt_series <- readRDS(file = file.path(getwd(), 'data', exp_name, 'rt_series.RDS'))
+
+  hed_hpi <- readRDS(file = file.path(getwd(), 'data', exp_name, 'he_hpi.RDS'))
+  hed_series <- readRDS(file = file.path(getwd(), 'data', exp_name, 'he_series.RDS'))
+
+  rf_hpi <- readRDS(file = file.path(getwd(), 'data', exp_name, 'rf_hpi.RDS'))
+  rf_series <- readRDS(file = file.path(getwd(), 'data', exp_name, 'rf_series.RDS'))
+  
+ # geo_results <- readRDS(file = file.path(getwd(), '../data/geo_results.RDS'))
+ 
+  
 ```
 
 ## Example
@@ -49,27 +53,26 @@ We create an example dataset in order to visualize what the ICE and PD analyses 
 First we load the raw Seattle data.  We only need a small portion of it (sales from area 44 from 2013 onwards)
 
 ```{r}
-  data(seattle_sales, package = 'hpiR')
-  ex_df <- seattle_sales %>% 
-    dplyr::filter(sale_date >= as.Date('2013-01-01') & 
-                  area == 44)
+
+  ex_df <-hed_df %>% 
+    dplyr::filter(area == 44)
 ```
 
 We then convert this data into a hedonic dataset for use in the `hpiR` package. We use monthly periodicity.  
 
 ```{r}
   exhed_df <- hedCreateTrans(trans_df = ex_df,
-                             prop_id = 'pinx',
-                             trans_id = 'sale_id',
-                             price = 'sale_price',
-                             date = 'sale_date',
+                             prop_id = 'prop_id',
+                             trans_id = 'trans_id',
+                             price = 'price',
+                             date = 'trans_date',
                              periodicity = 'monthly')
 ```
 
 We specify the random forest model and estimate it, using the `ranger` package. 
 
 ```{r}
-  rf_spec <- formula(log(price) ~ tot_sf + baths + beds + age + latitude + longitude + trans_period)
+  rf_spec <- formula(log(price) ~ sqft + baths + beds + age + latitude + longitude + trans_period)
   
   rf_model <- ranger::ranger(rf_spec,
                              data = exhed_df,
@@ -129,7 +132,7 @@ A plot showing the ICEs and the PD:
   geom_line(data = explot_df %>% dplyr::filter(obs == 0), 
             aes(x = time, y = price),
             color = 'red', size = 2) + 
-  coord_cartesian(ylim = c(350000, 1200000))
+  coord_cartesian(ylim = c(450000, 1400000))
 
 ```
 
@@ -141,13 +144,13 @@ We start by extracting the global indexes from the pre-computed objects.
 
  index_gdf <- dplyr::bind_rows(data.frame(Model = 'Repeat Sales', 
                                           index = rt_hpi$index$value, 
-                                          time = 1:84),
+                                          time = 1:length(rt_hpi$index$period)),
                               data.frame(Model = 'Hedonic Price', 
                                          index = hed_hpi$index$value, 
-                                         time = 1:84),
+                                         time = 1:length(rt_hpi$index$period)),
                               data.frame(Model = 'Interpretable Random Forest', 
                                          index = rf_hpi$index$value, 
-                                         time = 1:84)) %>%
+                                         time = 1:length(rt_hpi$index$period))) %>%
   dplyr::mutate(model = forcats::fct_relevel(as.factor(Model), 
                                              c('Repeat Sales', 'Hedonic Price', 
                                                'Interpretable Random Forest')))
@@ -220,15 +223,15 @@ Next, we create summary and print data.frame from this data
   dplyr::summarize(MAPE = median(abs(log_error)),
                    MPE = median(log_error)) 
 
- gaccr_pdf <- cbind(gaccr_sdf %>% dplyr::filter(accr == 'kf'),
-                       gaccr_sdf %>% dplyr::filter(accr == 'pr')) %>%
-  dplyr::select(model, MAPE_KF = MAPE, MPE_KF = MPE, MAPE_PR = MAPE1, MPE_PR = MPE1) %>%
+ gaccr_pdf <- gaccr_sdf %>% 
+   mutate(accr = toupper(accr)) %>%
+   tidyr::pivot_longer(cols = c('MAPE', 'MPE'), names_to = 'metric') %>%
+   tidyr::pivot_wider(names_from = c(metric,accr), values_from = value) %>%
   dplyr::ungroup() %>%
   dplyr::rename(Model = model) %>%
   dplyr::mutate(MAPE_KF = round(MAPE_KF, 4), MPE_KF = round(MPE_KF, 4),
                 MAPE_PR = round(MAPE_PR, 4), MPE_PR = round(MPE_PR, 4),
                 Model = c('Hedonic Price', 'Interpretable Random Forest', 'Repeat Sales'))
-
   knitr::kable(gaccr_pdf[c(3,1,2), ])
   
 ```

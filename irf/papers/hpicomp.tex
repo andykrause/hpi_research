@@ -1,0 +1,640 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{setspace}\doublespacing
+\ifLuaTeX
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={Is This House Price Index any Good?},
+  pdfauthor={Andy Krause and Reid Johnson},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{Is This House Price Index any Good?}
+\author{Andy Krause and Reid Johnson}
+\date{2023-12-10}
+
+\begin{document}
+\maketitle
+
+\hypertarget{abstract}{%
+\subsubsection{Abstract}\label{abstract}}
+
+House price indices are a widely used tool for understanding the
+aggregate movements in housing markets. As such they play an important
+role in decision-making by government bodies, federal and local, as well
+as individual market actors. There is robust collection of prior
+research on methods for index creation; however, a much smaller set of
+work addressing fundamental questions of index quality. In this work, we
+present a broad ranging set of criteria and metrics to judge the fitness
+of an index. Our empirical examples compare two common approach --
+Repeat Sales and Hedonic -- against a novel Interpretable Machine
+Learning (IML) method. We find that index preference is a question of
+use case of the index combined with measurable objective qualities of
+the index itself.
+
+\hypertarget{introduction}{%
+\subsection{Introduction}\label{introduction}}
+
+\emph{Traditionally, house price indexes have been derived from highly
+interpretable (statistical) modeling approaches such as regression
+models. Both the repeat sales and the hedonic approach -- the two most
+commonly published approaches (Hill 2012; MacGuire et al 2013) -- are
+regression-based models. Standard statistical models are a good fit for
+this task as the coefficient estimates are easily convertible into
+standardized price indexes. House price index generation is viewed as an
+inferential endeavor in which the attribution of the effects of time on
+market movements is sought, rather than a pure prediction problem. As a
+result, many of the rapidly growing set of machine learning algorithms
+-- e.g.~support vector machines, random forests and neural networks --
+have not been used in the production of price indexes due to the fact
+that they do not directly and/or easily attribute price impacts to the
+variables or features in the model. However, with the rise of
+interpretability methods (Ribiero et al.~2016; Doshi-Velez and Kim 2017;
+Molnar 2019), these `black-box' models can be made explainable and
+suitable for a more diverse set of tasks. }
+
+\emph{This paper highlights the use of partial dependence -- a
+model-agnostic interpretability method (Molnar 2019) -- to generate
+house price indexes from a machine learning and inherently
+non-interpretable model. One of the major appeals of using a
+model-agnostic approach is that any underlying model class could be used
+on the data. In this work I use a random forest, one of the more common
+and intuitive machine learning models. However, this choice of model
+class is only for convenience, as a neural network, for example, could
+just as easily have been used. Along with an explanation of the method
+and examples, the results from the application of a model-agnostic
+interpretability method are compared to the more traditional repeat
+sales and hedonic model approaches. The findings suggest that the
+interpretable random forest (IRF) appraoch to house price generation is
+competitive with (and occasionally prefereable to) the standard
+approaches across measure of accuracy, volatility and revision on a set
+of data from the city of Seattle. }
+
+\emph{The remainder of this work is organized as follows: Section two
+provides a brief literature review focused on applying machine learning
+approaches to the task of house price indexing. I then discuss the
+interpretable random forest (IRF) approach to creating a house price
+index and provide details using a dataset from the \texttt{hpiR} R
+package: Seattle, WA homes sales in the 2010 through 2016 period. In
+section four, the interpretable random forest method is compared to more
+traditional models across three metrics -- accuracy, volatility and
+revision. Finally, I conclude with a discussion of the results and the
+reproducility of this work. }
+
+\hypertarget{previous-work}{%
+\subsection{Previous Work}\label{previous-work}}
+
+Since the seminal Bailey et al.~(1963) study there has been considerable
+and sustained research effort put into comparing and improving competing
+methods for generating house price indexes. Published work in this
+sub-field of housing economics is generally focused on one or more of
+four aims: 1) Comparison of model differences (Case et al 1991; Crone \&
+Voith 1992; Meese and Wallace 1997; Nagaraja et al 2014; Bourassa et al
+2016); 2) Identification and correction of estimation issues or problems
+(Abraham \& Schauman 1991; Haurin \& Henderschott 1991; Clapp et al
+1992; Case et al 1997; Steele \& Goy 1997; Gatzlaff \& Haurin 1997,
+1998; Munneke \& Slade 2000); 3) Creation of local or submarket indexes
+(Goodman 1978; Hill et al 1997; Gunterman et al 2016; Bogin et al 2019;
+Ahlfeldt et al 2023); and/or 4) Development of a new model or estimator
+(Case \& Quigley 1991; Quigley 1995; Hill et al 1997; Englund et
+al.~1998, McMillen 2012; Bokhari \& Geltner 2012; Bourassa et al 2016;
+Xu and Zhang 2022).
+
+Measuring the quality of house price indexes has received considerable
+less attention in the research. Part of this likely stems from the fact
+that a house price index is created to measure a phenomena without an
+observable ground truth -- the price or value movements of a given
+market -- and therefore is, under any method or approach, a proxy at
+best. This inherent fact also means that any approach to measuring model
+quality comes with shortcomings and/or assumptions.
+
+In the existing work, three general criteria have been applied to
+evaluating house price indexes; one based on input and method and two on
+outputs. The input-based criteria asks the general question of ease of
+construction. The question of the constructability of house price
+indexes can be divided into two sub-questions or criteria. First, how
+easy or available is the necessary data for constructing the index? In
+reality, this reduces to a question of the availability of granular
+sales and home attribute data.
+
+Under this framework, the easiest index to create is one that relies
+only on aggregated prices, such as mean or median of observed prices in
+a given market over a given time period. This results in simplistic mean
+or median value indexes; approaches that are often used as baselines in
+comparative work (cite). Next are indexes based on repeat transaction of
+the same home. Repeat sales are appealing as they solve some of the
+constant quality issues that fully aggregated indexes create and they
+only require granular sales data -- the sale price, the sale data and a
+unique home identifier such as address. Finally, we have a wide variety
+of approach, broadly characterized in the literature as hedonic methods
+(Hill 2013). These approaches require both transaction and home
+attribute data for all transactions, the heaviest data collection burden
+of the three.
+
+The second question to ask under the `constructability' criteria is the
+model estimator itself. Again, a fully aggregated approach like a median
+or mean offers the lowest barrier. Traditionally, repeat sales models
+(cite) utilized basic linear models (OLS) which are straight-forward to
+both create and understand. More recent work (Bourassa\ldots cite) has
+developed more advanced or robust approaches to repeat sale estimation
+but they are still rooted in linear regressor. The broad class of
+`hedonic' approach again offer the most comlexity in estimation. Within
+this class, constructability can vary widely from still quite
+straightforward in the case of linear hedonic model with dummy
+estimators (ex. Hill and Trojanek 2022) to very complex method derives
+from neural network estimators (ex. Xu and Zhang 2023). Hedonic
+estimators offer complexity in the form of the choice of model
+specification (independent variables), structure and, in the case of
+machine learning-based approaches, the selection of hyperparameters.
+Together, all of the these decision about the model combined with the
+potential for greatly increased compute times as the methodology becomes
+more specifialized means that hedonic approach present the highest
+barriers to constructability.
+
+In sum, the constructability criteria is a combination of data
+requirements and estimator complexity, interpretability and computation
+time.
+
+Output metrics
+
+The most common output metric in the literature is that of index
+accuracy. As noted above, there is no exact ground truth of the movement
+of aggregate house prices in a region so any approach here is a proxy,
+with limitations. The favored approach in the existing literature is to
+test the ability of an index to predict the second sale of repeat
+transaction pair. This approach takes the first sale of a pair, indexes
+that price forward by the given index to the date of the repeat
+transaction and then computes an error measure where the error is the
+difference in the predicted value and the actual price of the second
+sale in the pair. This is an appealing approach as individual error
+metrics at the home level allow for computation of standard metrics like
+root mean squared error (RMSE), mean absolute error (MAE) and others
+that are common in the evaluation of Automated Valuation Models, other
+hedonic pricing models and many/most regression-based machine learning
+tasks(cite that paper on ways to measure AVMs).
+
+A downfall of this particular approach to accuracy; however, is that it
+relies solely on repeat transactions. As noted by others (Hill 2013;
+\ldots), repeat transactions are not a random sample of all homes in the
+market nor are they are random sample even of those homes that sell.
+Additionally, repeat transactions themselves can be subject to
+violations of constant quality in the case of renovation and/or
+depreciation (Steele and Gray 1997).
+
+A second approach to measure the objective qualities of an index looks
+at the revision of an index over time (\ldots, Van de Minne et al 2020).
+Revisions occurs when the re-estimation of the index over time results
+in changes to prior estimates. For example, take an index with a value
+of 134.2 in August of 2023. If when the index is re-estimated in
+September and that value changes to 134.4, that is a revision of 0.2
+points. Revision, particularly those that are substantial can create
+harmful impacts on users of indices in applied and/or policy
+persectives. It is generally accepted that index revision should be
+minimized (cite)
+
+In summary, the existing work on measuring index quality uses three
+criteria to evaluation house price indexes: 1) a measure of the ease of
+constructability; 2) a measure of accuracy in the form of predicting the
+second of a repeat transaction; and 3) a measure of the extent to which
+the index values revise as a series of indexes are created over time. We
+use this existing framwork as a basis for our extensions discussed in
+the section below.
+
+\hypertarget{extending-the-measure-of-index-evaluation}{%
+\subsubsection{Extending The Measure of Index
+Evaluation}\label{extending-the-measure-of-index-evaluation}}
+
+One perspective missing from the current framework for index evaluation
+is that of the end use or user. The purpose to which the index is being
+put should be considered. To bring this perspective we add three
+addition evaluation criteria to the existing three: 1) Relative
+predictive accuracy improvement; 2) Volatility; 3) Local specificity.
+
+As noted above, the use of repeat transactions as the benchmark for
+predictive accuracy suffers from many of the same limitations as repeat
+transaction models -- namely sample selection and constant quality
+issues stemming from renovation and/or depreciation. This approach also
+ignores one of the growing uses to which house price indexes are
+employed, that of supporting automated and/or manual home pricing
+exercises. Some approaches to the construction of automated valuation
+models (AVMs) will first time-adjust all sales in the training data (the
+target values) to the price as if the home sold at the time of the AVM
+training. By doing so, a model can focus on distinguishing the
+cross-section variation between homes while relying on an outside model
+to make temporal adjustments.
+
+From the manual side, indexes are often used to make time adjustments in
+traditional adjustment grids or comparable market analyses (CMAs). These
+are use cases where a small sample of recent, similar sales are used to
+create a value estimate. Those recent sale prices are generally adjusted
+forward in time to the date of valuation using an index.
+
+Considering these growing use cases of home price indexes, we offer an
+alternative to the commonly used repeat transaction accuracy methods. In
+this alternative, we compute the relative accuracy improvement of an
+index over a baseline model that has no temporal adjustments. This is a
+two-step process in which first an baseline hedonic pricing model is
+estimated in which time is completely ignored; there are no temporal
+variables. We measure the predictive accuracy of this model as the
+baseline. We then time-adjusted all sale prices in the data to the
+valuation date of the model and re-estimate it, again measuring the
+predictive ability. The relative change in accuracy between the baseline
+model (no time controls) and the model with index-adjusted sale prices
+represents a comparative measure of the index's ability to improve a
+valuation model. This offers another measure of the index's accuracy
+where accuracy is a proxy for its ability to track the actual
+(unobserved) movements in the market.
+
+To the extent that home price indexes are meant to represent an estimate
+of the aggregate movement of all home values in a region or market, a
+desirable characteristic is that the index is not overly noisy. Noisy
+here mean that that index `chases' or is overly impacted by one or a
+single data points that are likely not representative of the underlying
+global phenomenon. In the machine learning domain this is often
+represented by a model that has great fit on in-sample data but has a
+large reduction in accuracy when applied to new, out of sample data
+(cite). Likewise, with an index, a high noise to trend ratio could be
+indicative of the same problem.
+
+In addition to the fundamental, estimator-based issues stemming from
+volatility, a highly noisy index is also hard to rationalize to users of
+indexes, particularly those looking to make important financial
+decisions based on the (perceived) market changes suggested by the
+index. Simply put, it is hard to build trust with users when indexes
+have a high noise-to-signal ratio.
+
+Conversely, we shouldn't look to fully minimize volatility either as,
+taken to an extreme, a perfectly flat index would optimize volatility
+reduction but at the cost of being useful at all. It is a delicate
+balance. In this work, we measure volatilty by -------------, but look
+at the comparison only relatively. We balance off volatility against
+other measure in a subjective, criteria-ranking approach not as an
+objective measure to be optimized. As a result, it operates somewhat
+like the `constructability' criteria -- something that should be taken
+into account by developers and users, but not a criteria to necessarily
+be optimized against.
+
+Finally, prior work has established the need to derive indexes for small
+geographic regions or other local definitions of submarkets (cite). A
+third measure of index quality is the relative change in the above
+metrics when the index is applied to smaller subregions within the
+larger market. We term this Local Specificity.
+
+In the evaluations that follow we will focus on four objective measures
+of house price index performance: 1) Absolute accuracy via repeat
+transactions; 2) Relative accuracy via AVM improvement; 3) Revision; and
+4) Volatility. With then look at all for of these measures at global and
+local (to our data) levels in order to measure the Local Specificity or
+ability of the index to discern local trends while also maintain the
+four objective quality measures. In the discussion sections we'll also
+layer in considerations of the `constructability' dimension on indexes
+to highlight some of the tradeoffs
+
+\hypertarget{reproducibility-and-software}{%
+\subsubsection{Reproducibility and
+Software}\label{reproducibility-and-software}}
+
+This work is completely reproducible. All raw data, code and general
+instructions to exactly recreate the analyses above is found at
+\href{www.github.com/anonymousreauthor/irf_house_price_index}{https://www.github.com/anonymousreauthor/irf\_house\_price\_index}\footnote{NOTE
+  to reviewers: This will be switched to my actual Github Repository
+  after blind peer review.} All code is written in the R statistical
+language. In addition to the \texttt{hpiR} package, which includes the
+custom functions for the IRF models and the wrapper functions that make
+for easy computation of accuracy, volatility and revision figures this
+work also directly uses the following R packages: \texttt{caret}(Kuhn
+2019), \texttt{dplyr}(Wickham et al 2019), \texttt{forecast}(Hyndman et
+al 2019), \texttt{ggplot}(Wickham 2016), \texttt{imputeTS}(Moritz and
+Bartz-Beielstein 2017), \texttt{knitr}(Xie 2019),
+\texttt{lubridate}(Grolemund and Wickham 2011), \texttt{pdp}(Greenwell
+2017), \texttt{purrr}(Henry and Wickham 2019), \texttt{ranger}(Wright
+and Ziegler 2017), \texttt{robustbase}(Maechler et al 2019),
+\texttt{tidyr}(Wickham and Henry 2019) and \texttt{zoo}(Zeileis and
+Grothendieck 2005).
+
+~ ~
+
+\pagebreak
+
+\hypertarget{references}{%
+\subsection{References}\label{references}}
+
+Abraham, J. M., \& Schauman, W. S. (1991). New evidence on home prices
+from Freddie Mac repeat sales. \emph{Real Estate Economics}, 19(3),
+333-352.
+
+Ahlfeldt, G. M., Heblich, S., and Seidel, T. (2023) Micro-geographic
+property price and rent indices, \emph{Regional Science and Urban
+Economics}, 98.
+
+Apley, D. (2016). Visualizing the Effects of Predictor Variables in
+Black Box Supervised Learning Models.
+\href{arxiv.org/abs/1612.08468}{https://arxiv.org/abs/1612.08468}
+
+Bailey, M., Muth, R., \& Nourse, H. (1963). A Regression Method for Real
+Estate Price Index Construction. \emph{Journal of the American
+Statistical Association}, 58, 933-942.
+
+Bogin, A. N., Doerner, W. M., Larson, W. D., \& others. (2016). Local
+House Price Dynamics: New Indices and Stylized Facts \emph{FHFA Working
+Paper}.
+
+Bokhari, S. \& Geltner, D. J. (2012). Estimating Real Estate Price
+Movements for High Frequency Tradable Indexes in a Scarce Data
+Environment. \emph{The Journal of Real Estate Finance and Economics}
+45(2), 533-543.
+
+Bourassa, S., Cantoni, E., \& Hoesli, M. (2016). Robust hedonic price
+indexes. \emph{International Journal of Housing Markets and Analysis},
+9(1), 47-65.
+
+Breiman, L. (2001) Random Forests. \emph{Machine Learning} 45(1), 5-32.
+\href{https://link.springer.com/article/10.1023/A:1010933404324}{doi:10.1023/A:1010933404324}
+
+Case, B., Pollakowski, H. O., \& Wachter, S. M. (1991). On choosing
+among house price index methodologies. \emph{Real Estate Economics},
+19(3), 286-307.
+
+Case, B., Pollakowski, H. O., \& Wachter, S. (1997). Frequency of
+transaction and house price modeling. \emph{The Journal of Real Estate
+Finance and Economics}, 14(1), 173-187.
+
+Case, B. \& Quigley, J. M. (1991). The dynamics of real estate prices.
+\emph{The Review of Economics and Statistics}, 50-58.
+
+Case, K. \& Shiller, R. (1987). Prices of Single Family Homes Since
+1970: New Indexes for Four Cities. \emph{New England Economic Review},
+Sept/Oct, 45-56.
+
+Case, K. \& Shiller, R. (1989). The Efficiency of the Market for Single
+Family Homes. \emph{The American Economic Review}, 79(1), 125-137.
+
+Clapham, E., Englund, P., Quigley, J. M., \& Redfearn, C. L. (2006).
+Revisiting the past and settling the score: index revision for house
+price derivatives. \emph{Real Estate Economics}, 34(2), 275-302.
+
+Clapp, J. M., \& Giaccotto, C. (1999). Revisions in Repeat-Sales Price
+Indexes: Here Today, Gone Tomorrow? \emph{Real Estate Economics}, 27(1),
+79-104.
+
+Clapp, J. M., Giaccotto, C., \& Tirtiroglu, D. (1992). Repeat sales
+methodology for price trend estimation: an evaluation of sample
+selectivity. \emph{Journal of Real Estate Finance and Economics}, 5(4),
+357-374.
+
+Cohen, SB, Dror, G \& Ruppin, E (2005) Feature Selection Based on the
+Shapley Value. in \emph{Proceedings of IJCAI}. pp.~1-6.
+
+Crone, T. M., \& Voith, R. (1992). Estimating house price appreciation:
+a comparison of methods. \emph{Journal of Housing Economics}, 2(4),
+324-338.
+
+Doshi-Velez, F. and Kim, B. (2017) Toward a Rigorous Science of
+Interpretable Machine Learning. \emph{arXiv::1702.08608}.
+\url{https://arxiv.org/abs/1702.08608}
+
+Englund, P., Quigley, J. M., \& Redfearn, C. L. (1999). The choice of
+methodology for computing housing price indexes: comparisons of temporal
+aggregation and sample definition. \emph{The Journal of Real Estate
+Finance and Economics}, 19(2), 91-112.
+
+Eurostat (2013) Handbook on Residential Property Prices Indices (RPPIs).
+\emph{Eurostat: Methodologies and Working Papers}
+\href{https://op.europa.eu/en/publication-detail/-/publication/cee09dbc-bf48-4126-a7d1-0bb9c028f648/language-en}{doi:10.2785/34007}
+
+Friedman, J. (2001). Greedy function approximation: A gradient boosting
+machine. \emph{Annals of statistics} 1189-1232.
+
+Gatzlaff, D. H., \& Haurin, D. R. (1997). Sample Selection Bias and
+Repeat-Sales Index Estimates. \emph{The Journal of Real Estate Finance
+and Economics}, 14, 33-50.
+
+Gatzlaff, D. H., \& Haurin, D. R. (1998). Sample Selection and Biases in
+Local House Value Indices. \emph{Journal of Urban Economics}, 43,
+199-222.
+
+Goldstein, A., Kapelner, A., Bleich, J. and Pitkin, E. (2014) Peeking
+Inside the Black Box: Visualizing Statistical Learning with Plots of
+Individual Conditional Expectiation.
+\href{arxiv.org/pdf/1309.6392.pdf}{https://arxiv.org/pdf/1309.6392.pdf}
+
+Goodman, A. C. (1978). Hedonic prices, price indices and housing
+markets. \emph{Journal of Urban Economics}, 5, 471-484.
+
+Greenwell, B. (2017). pdp: An R Package for Constructing Partial
+Dependence Plots. \emph{The R Journal}, 9(1), 421--436. URL
+\url{https://journal.r-project.org/archive/2017/RJ-2017-016/index.html}.
+
+Gregorutti, B., Bertrand, M., and Saint-Pierre, P. (2017) Correlation
+and variable importance in random forests. \emph{Statistics and
+Computing}, 27(3), 659-678.
+
+Grolemund, G. and Wickham, H. (2011). Dates and Times Made Easy with
+lubridate. \emph{Journal of Statistical Software}, 40(3), 1-25. URL:
+\url{http://www.jstatsoft.org/v40/i03/}.
+
+Guntermann, K. L., Liu, C., \& Nowak, A. D. (2016). Price Indexes for
+Short Horizons, Thin Markets or Smaller Cities. \emph{Journal of Real
+Estate Research}, 38(1), 93-127.
+
+Hastie, T., Tibshirani, R. and Friedman, J. (2008). \emph{The Elements
+of Statistical Learning: Data Mining, Inference and Predcition.}
+Springer.
+
+Haurin, D. R., \& Hendershott, P. H. (1991). House price indexes: issues
+and results. \emph{Real Estate Economics}, 19(3), 259-269.
+
+Henry, L. and Wickham, H. (2019). purrr: Functional Programming Tools. R
+package version 0.3.2. \url{https://CRAN.R-project.org/package=purrr}
+
+Hill, R. (2013) Hedonic Price Indexes for Residential Housing: A Survey,
+Evaluation and Taxonomy. \emph{Journal of Economic Surveys} 27(5),
+879-914. \url{https://doi.org/10.1111/j.1467-6419.2012.00731.x}
+
+Hill, R. C., Knight, J. R., \& Sirmans, C. F. (1997). Estimating capital
+asset price indexes. \emph{Review of Economics and Statistics}, 79(2),
+226-233.
+
+Hill, R. and Trojanek, R. (2022) An evaluation of competing methods for
+constructing house price indexes: The case of Warsaw. \emph{Land Use
+Policy}, 120, 106226.
+
+Hoesli, M., Giacotto, C., and Favarger, P. (1997) Three new real estate
+price indices for Geneva, Switzerland. \emph{The Journal of Real Estate
+Finance and Economics}, 15(1), 93-109.
+
+Hyndman, R., Akram, M. and Archibald, B. (2008) The admissible parameter
+space for exponential smoothing models. \emph{Annals of the Institute of
+Statistical Mathematics}, 60(2), 407-426.
+
+Hyndman R, Athanasopoulos G, Bergmeir C, Caceres G, Chhay L, O'Hara-Wild
+M, Petropoulos F, Razbash S, Wang E, Yasmeen F (2019). \emph{forecast:
+Forecasting functions for time series and linear models}. R package
+version 8.7, \textless URL:
+\url{http://pkg.robjhyndman.com/forecast}\textgreater.
+
+Kuhn, M. (2019) caret: Classification and Regression Training. R
+Package. \url{https://CRAN.R-project.org/package=caret}
+
+McMillen, D. (2012). Repeat sales as a matching estimator. \emph{Real
+Estate Economics}, 40(4), 745-773.
+
+Maechler, M., Rousseeuw, P. Croux, C., Todorov, V., Ruckstuhl, A.,
+Salibian-Barrera, M., Verbeke, T., Koller, M., Conceicao, E., and di
+Palma, M.A.~(2019). robustbase: Basic Robust Statistics R package
+version 0.93-5. \url{http://CRAN.R-project.org/package=robustbase}
+
+Maguire, P., Miller, R., Moser, P. and Maguire, R. (2016) A robust house
+price index using sparse and frugal data, \emph{Journal of Property
+Research}, 33:4, 293-308,
+\url{https://doi.org/10.1080/09599916.2016.1258718}
+
+Mayer, M., Bourassa, S., Hoesli, M., and Scognamiglio, D. (2019).
+Estimation and updating methods for hedonic valuation. \emph{Journal of
+European Real Estate Research.} 12(1), 134-150.
+\url{https://doi.org/10.1108/JERER-08-2018-0035}.
+
+Meese, R. A., \& Wallace, N. (1997). The construction of residential
+housing price indices: a comparison of repeat-sales, hedonic-regression,
+and hybrid approaches. \emph{The Journal of Real Estate Finance and
+Economics}, 14(1), 51-73.
+
+Molnar, C. (2019) \emph{Interpretable Machine Learning: A Guide for
+Making Black Box Model Explainable}. Leanpub. ISBN 978-0-244-76852-2.
+\url{https://christophm.github.io/interpretable-ml-book/}
+
+Moritz S, Bartz-Beielstein T (2017). ``imputeTS: Time Series Missing
+Value Imputation in R.'' \emph{The R Journal}, \emph{9}(1), 207-218.
+\url{doi:10.32614/RJ-2017-009} (URL:
+\url{https://doi.org/10.32614/RJ-2017-009}).
+
+Munneke, H. J., \& Slade, B. A. (2000). An empirical study of
+sample-selection bias in indices of commercial real estate. \emph{The
+Journal of Real Estate Finance and Economics}, 21(1), 45-64.
+
+Nagaraja, C., Brown, L., \& Wachter, S. (2014). Repeat sales house price
+index methodology. \emph{Journal of Real Estate Literature}, 22(1),
+23-46.
+
+Quigley, J. M. (1995). A simple hybrid model for estimating real estate
+price indexes. \emph{Journal of Housing Economics}, 4(1), 1-12.
+
+R Core Team (2019). R: A language and environment for statistical
+computing. R Foundation for Statistical Computing, Vienna, Austria. URL
+\url{https://www.R-project.org/}.
+
+Ribiero, M., Singh, S. and Guestrin, C. (2016) Model-agnostic
+Interpretability of Machine Learning. \emph{arXiv::1606.05386}.
+\url{https://arxiv.org/abs/1606.05386}
+
+Ribiero, M., Singh, S., and Guestrin, C. (2016b) ``Why Should I Trust
+You?'': Explaining the Predictions of Any Classifier. \emph{Proceedings
+of the 22nd ACM SIGKDD International Conference on Knowledge Discovery
+and Data Mining.} pp 1135--1144, doi: 10.1145/2939672.2939778.
+
+Rudin, C. and Carlson, D. (2019) The Secrets of Machine Learning: Ten
+Things You Wish You Had Known Earlier to Be More Effective at Data
+Analysis. \emph{Tutorials in Operations Research}
+\url{https://arxiv.org/pdf/1906.01998v1}
+
+Slack, D., Friedler, S., Scheidegger, C. and Roy, C.D. (2019) Assessing
+the Local Interpretability of Machine Learning Models.
+\url{https://arxiv.org/pdf/1902.03501.pdf}
+
+Steele, M., \& Goy, R. (1997). Short holds, the distributions of first
+and second sales, and bias in the repeat-sales price index. \emph{The
+Journal of Real Estate Finance and Economics}, 14(1), 133-154.
+
+Tofallis, C (2015). A better measure of relative prediction accuracy for
+model selection and model estimation. \emph{Journal of the Operational
+Research Society}, 66, 1352-1362. \url{doi:10.1057/jors.2014.103}
+
+Wickham, H. (2016) \emph{ggplot2: Elegant Graphics for Data Analysis.}
+Springer-Verlag New York.
+
+Wickham, H., Francois, R., Henry, L. and Muller, K. (2019). dplyr: A
+Grammar of Data Manipulation.
+\url{https://CRAN.R-project.org/package=dplyr}
+
+Wickham, H. and Henry, L. (2019). tidyr: Easily Tidy Data with
+`spread()' and `gather()' Functions. R package version 0.8.3.
+\url{https://CRAN.R-project.org/package=tidyr}
+
+Wright, M. and Ziegler, A. (2017) ranger: A Fast Implmentation of Random
+Forests for High Dimensional Data in C++ and R. \emph{Journal of
+Statistical Software}, 77(1), 1-17.
+
+Van de Minne, Alex et al.~``Using Revisions as a Measure of Price Index
+Quality in Repeat-Sales Models.'' Journal of Real Estate Finance and
+Economics 60 (May 2020): 514--553
+
+Xie, Y. (2019). knitr: A General-Purpose Package for Dynamic Report
+Generation in R. R package version 1.23.
+
+Xu, X. and Zhang, Y. (2022) Second-hand house price index forecasting
+with neural networks, \emph{Journal of Property Research}, 39:3,
+215-236.
+
+Zeileis, A. and Grothendieck, G. (2005). zoo: S3 Infrastructure for
+Regular and Irregular Time Series. \emph{Journal of Statistical
+Software}, 14(6), 1-27. \url{doi:10.18637/jss.v014.i06}
+
+\end{document}

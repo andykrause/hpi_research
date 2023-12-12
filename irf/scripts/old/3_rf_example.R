@@ -1,0 +1,100 @@
+library(tidyverse)
+library(digest)
+library(mlr)
+
+## Custom packages 
+library(hpiR) # Ensure this is v 0.3.0 from Github, not 0.2.0 from CRAN
+
+## Create experiment data output
+
+sales_df <- readRDS(file = file.path(getwd(), 'data', 'king_df.RDS'))
+rt5_df <- readRDS(file = file.path(getwd(), 'data', 'data_rt_5_county_king.RDS'))
+rt10_df <- readRDS(file = file.path(getwd(), 'data', 'data_rt_10_county_king.RDS'))
+#rt22_df <- readRDS(file = file.path(getwd(), 'data', 'data_rt_22_county_king.RDS'))
+hed5_df <- readRDS(file = file.path(getwd(), 'data', 'data_hed_5_county_king.RDS'))
+hed10_df <- readRDS(file = file.path(getwd(), 'data', 'data_hed_10_county_king.RDS'))
+#hed22_df <- readRDS(file = file.path(getwd(), 'data', 'data_hed_22_county_king.RDS'))
+
+ind_var = c('use', 'grade', 'sqft_lot', 'age', 'sqft', 'beds', 'baths', 'latitude', 'longitude')
+
+## All King County
+
+# Five Year
+rf_5 <- rfWrapper(hed_df = hed5_df,
+                  time_id = 5,
+                  sm_field = 'county',
+                  sm_id = 'king',
+                  estimator = 'pdp', 
+                  ind_var = ind_var,
+                  rt_df = rt5_df,
+                  sim_per = .05,
+                  ntrees = 100,
+                  data_path = file.path(getwd(), 'data'),
+                  train_period = 12)
+
+rf_10 <- rfWrapper(hed_df = hed10_df,
+                   time_id = 10,
+                   sm_field = 'county',
+                   sm_id = 'king',
+                   estimator = 'pdp', 
+                   ind_var = ind_var,
+                   rt_df = rt10_df,
+                   sim_per = .2,
+                   data_path = file.path(getwd(), 'data'),
+                   train_period = 24)
+
+rf_22 <- rfWrapper(hed_df = hed22_df,
+                   time_id = 22,
+                   sm_field = 'county',
+                   sm_id = 'king',
+                   estimator = 'pdp', 
+                   ind_var = ind_var,
+                   rt_df = rt22_df,
+                   sim_per = .2,
+                   data_path = file.path(getwd(), 'data'),
+                   train_period = 48)
+
+### City Specific
+
+cities <- c('SEATTLE', 'KING COUNTY', 'BELLEVUE', 'SAMMAMISH', 'KENT',
+            'RENTON', 'KIRKLAND', 'FEDERAL WAY', 'AUBURN', 'MAPLE VALLEY')
+
+city_sales_df <- hed10_df %>% dplyr::filter(city %in% cities)
+
+cities <- sort(cities)
+city_ <- split(city_sales_df, city_sales_df$city)
+
+city_results <- purrr::map2(.x = city_,
+                            .y = tolower(cities),
+                            .f = rfWrapper,
+                            time_id = 10,
+                            sm_field = 'city', 
+                            ind_var = ind_var,
+                            rt_df = rt10_df,
+                            estimator = 'pdp',
+                            sim_per = .2,
+                            data_path = file.path(getwd(), 'data'),
+                            train_period = 24)
+
+### Submarket
+
+subm <- c('A', 'B', 'C', 'D', 'E', 'F', 'G', 'I', 'J', 'K', 'L', 'M', 'N',
+          'O', 'P', 'Q', 'R', 'S')
+
+subm_sales_df <-  hed10_df %>% dplyr::filter(submarket %in% subm)
+
+subm_ <- split(subm_sales_df, subm_sales_df$submarket)
+
+rf_subm_results <- purrr::map2(.x = subm_,
+                               .y = tolower(subm),
+                               .f = rfWrapper,
+                               time_id = 10,
+                               sm_field = 'submarket', 
+                               ind_var = ind_var,
+                               estimator = 'pdp',
+                               sim_per = .2,
+                               rt_df = rt10_df,
+                               data_path = file.path(getwd(), 'data'),
+                               train_period = 24)  
+
+

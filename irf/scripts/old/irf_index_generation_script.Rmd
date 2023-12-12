@@ -15,35 +15,99 @@ This script generates the index and series necessary to perform the comparisons 
 knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 ```
 
+We begin by loading the necessary libraries.  All of these are found on CRAN and should be installable via the `install.packages()` function.  
 
-We begin by loading the necessary libraries.  All three of these are found on CRAN and should be installable via the `install.packages()` function.  
+```{r load_libraries }
 
-```{r }
-  library(hpiR) # Ensure this is v 0.3.0 from Github, not 0.2.0 from CRAN
-  if(packageVersion('hpiR') != '0.3.0') cat('Please download version 0.3.0 from Github.')
+ ## Standard Packages
   library(tidyverse)
   library(mlr)
+  library(digest)
+
+ ## Custom packages 
+  library(hpiR) # Ensure this is v 0.3.0 from Github, not 0.2.0 from CRAN
+ # if(packageVersion('hpiR') != '0.3.0'){
+#      cat('Installing version 0.3.0 from Github.')
+#      devtools::install_github('andykrause/hpiR')
+ #   }
+  if(!'kingCoData' %in% installed.packages()[,1]){
+    devtools::install_github('andykrause/kingCoData')
+  } 
+  library(kingCoData)
+
 ```
 
-Next we load the seattle sales data from the `hpiR` package.
+Next we load the King County sales data from the `kingco_sales` package.  We then filter down to the city of Seattle only, sales from 2015 through 2022
 
-```{r}
-  data(seattle_sales, package = 'hpiR')
+```{r, data_filter}
+  data(kingco_sales)
+  seasales_df <- kingco_sales %>% 
+    dplyr::filter(city == 'SEATTLE' & 
+                    sale_date >= as.Date('2010-01-01'))
+  
 ```
 
 ### Build Data
 
-We now create two `hpiR` ready datasets from the base data (`seattle_sales`).
+We now create two `hpiR` ready datasets from the base data (`seasales_df`).
 
 1. The first is a hedonic data set, complete with relevant home characteristics and the sale date converted to a monthly integer (`trans_period`), with the first month as January 2010.  
 
 ```{r}
-  hed_df <- hedCreateTrans(trans_df = seattle_sales,
+
+ ## Filter by property status (history of the parcel)
+
+  legal_status <- c('new', 'nochg', 'rebuilt - before', 'reno - before')
+
+  seasales_df <- seasales_df %>%
+    dplyr::filter(join_status %in% legal_status)
+  
+  ## Select necessary fields
+
+  seasales_df <-
+    seasales_df %>% 
+    dplyr::select(sale_id, pinx, sale_date, sale_price, join_status, latitude, longitude,
+                  area, submarket, subdivision, present_use, land_val, imp_val,
+                  year_built, year_reno, sqft_lot, sqft, sqft_1, sqft_fbsmt, grade,
+                  condition, stories, beds, bath_full, bath_3qtr, bath_half, garb_sqft,
+                  gara_sqft, wfnt, golf, greenbelt, traffic = noise_traffic, 
+                  view_rainier, view_olympics, view_cascades, view_sound, view_lakewash)
+
+ ## Feature Engineering 
+  
+  ## Create baths, view score and combined tax values
+  seasales_df <- seasales_df %>%
+    dplyr::mutate(baths = bath_full + (bath_3qtr * .75) + (bath_half * .5),
+                  garage_sqft = garb_sqft + gara_sqft,
+                  view_score = view_rainier + view_olympics + view_cascades + view_sound +
+                    view_lakewash,
+                  tax_value = land_val + imp_val,
+                  waterfront_type = dplyr::case_when(
+                    wfnt %in% c(4,5,8) ~ 'lake',
+                    wfnt %in% c(1,9) ~ 'river',
+                    wfnt %in% c(2,3) ~ 'puget_sound',
+                    wfnt == 6 ~ 'lake_wash',
+                    wfnt == 7 ~ 'lake_samm',
+                    TRUE ~'none'),
+                  age = as.numeric(substr(sale_date, 1, 4)) - year_built,
+                  eff_age = ifelse(year_reno == 0, age,
+                                   as.numeric(substr(sale_date, 1, 4)) - year_reno),
+                  green_adjacent = ifelse(golf == 1 | greenbelt == 1, 1, 0),
+                  townhome = ifelse(present_use == 29, 1, 0),
+                  compmarket = paste0(ifelse(waterfront_type == 'none',
+                                              submarket, waterfront_type))
+                  )
+
+  ## Convert to hedonic-ready dataset
+  hed_df <- hedCreateTrans(trans_df = seasales_df,
                            prop_id = 'pinx',
                            trans_id = 'sale_id',
                            price = 'sale_price',
                            date = 'sale_date',
                            periodicity = 'monthly')
+
+ ## Insert 
+
 
 ```
 
@@ -62,7 +126,7 @@ An example of the data is shown below:
 2) We then create a repeat sales transaction dataset from the same base data.  
 
 ```{r}
-  rt_df <- rtCreateTrans(trans_df = seattle_sales,
+  rt_df <- rtCreateTrans(trans_df = seasales_df,
                          prop_id = 'pinx',
                          trans_id = 'sale_id',
                          price = 'sale_price',
@@ -94,15 +158,24 @@ Our final preparatory step is to set the global parameters to be used by all the
 * `ind_var`: The independent variables to use in the hedonic and random forest models. 
 * `ntrees`: The number of trees to grow in each random forest model
 * `sim_count`: The number of properties to simulate in the random forest partial dependence plots
+* `exp_name`: A unique identifier for the experiment, currently just concatenating the hash of the data with the hash of the ind_var with the train and max periods
 
 ```{r}
 
- max_period <- 84
+ max_period <- max(hed_df$trans_period)
  train_period <- 24
- ind_var = c('use_type', 'bldg_grade', 'lot_sf', 'tot_sf', 'beds', 
-                                      'baths', 'latitude', 'longitude')
+ ind_var = c('present_use', 'grade', 'sqft_lot', 'age', 'sqft', 'beds', 
+              'baths', 'latitude', 'longitude')
  ntrees = 500
  sim_count = 500
+ exp_name <- paste0(substr(digest::digest(seattle_sales), 1, 6), '_',
+                     substr(digest::digest(ind_var), 1, 6), '_',
+                       max_period, '_', train_period)
+ cat(exp_name, '\n\n')
+ if(!file.exists(file.path(getwd(), 'data', exp_name))){
+   dir.create(file.path(getwd(), 'data', exp_name))
+ }
+ 
 
 ```
 
@@ -195,10 +268,13 @@ We then save the key data from the index and series for later comparison and ana
 
 ```{r}
    
-  saveRDS(rt_df, file = file.path(getwd(), '/data/rt_df.RDS'))
-  saveRDS(rt_hpi[c('index')], file = file.path(getwd(), '/data/rt_hpi.RDS'))
-  saveRDS(rt_series[c('revision', 'pr_accuracy')], file = file.path(getwd(), '/data/rt_series.RDS'))
+  saveRDS(rt_df, file = file.path(getwd(), 'data', exp_name, 'rt_df.RDS'))
+  saveRDS(rt_hpi[c('index')], file = file.path(getwd(), 'data', exp_name, 'rt_hpi.RDS'))
+  saveRDS(rt_series[c('revision', 'pr_accuracy')], file = file.path(getwd(),
+          'data', exp_name, 'rt_series.RDS'))
 
+  rm(rt_hpi); rm(rt_series)
+  gc()
   
 ```
 
@@ -209,7 +285,7 @@ Next, we run through the same progression of analyses with the hedonic modeling 
 ```{r}
 
   he_hpi <- hedIndex(trans_df = hed_df,
-                     estimator = 'robust',
+                     estimator = 'base',
                      log_dep = TRUE,
                      dep_var = 'price',
                      ind_var = ind_var,
@@ -259,10 +335,13 @@ Next, we run through the same progression of analyses with the hedonic modeling 
                                   in_place = TRUE,
                                   in_place_name = 'pr_accuracy')
 
-  saveRDS(hed_df, file = file.path(getwd(), '/data/he_df.RDS'))
-  saveRDS(he_hpi[c('index')], file = file.path(getwd(), '/data/he_hpi.RDS'))
-  saveRDS(he_series[c('revision', 'pr_accuracy')], file = file.path(getwd(), '/data/he_series.RDS'))
+  saveRDS(hed_df, file = file.path(getwd(), 'data', exp_name, 'he_df.RDS'))
+  saveRDS(he_hpi[c('index')], file = file.path(getwd(), 'data', exp_name, 'he_hpi.RDS'))
+  saveRDS(he_series[c('revision', 'pr_accuracy')], file = file.path(getwd(),
+          'data', exp_name, 'he_series.RDS'))
 
+  rm(he_hpi); rm(he_series)
+  gc()
 ```
 
 ### Random Forest
@@ -322,8 +401,12 @@ Finally, we run through the same progression of analyses with the random forest 
                                    in_place = TRUE,
                                    in_place_name = 'pr_accuracy')
    
-  saveRDS(rf_hpi[c('index')], file = file.path(getwd(), '/data/rf_hpi.RDS'))
-  saveRDS(rf_series[c('revision', 'pr_accuracy')], file = file.path(getwd(), '/data/rf_series.RDS'))
+  saveRDS(rf_hpi[c('index')], file = file.path(getwd(), 'data', exp_name, 'rf_hpi.RDS'))
+  saveRDS(rf_series[c('revision', 'pr_accuracy')], file = file.path(getwd(),
+          'data', exp_name, 'rf_series.RDS'))
+  rm(rf_hpi);rm(rf_series)
+  gc()
+  
 
 ```
 
@@ -338,10 +421,10 @@ Before we estimate all three models at the smaller geographic level, we turn the
 modelComparison <- function(data_obj,
                             periodicity = 'monthly',
                             train_period = 24,
-                            max_period = 84,
+                            max_period = 95,
                             ntrees = 500,
                             sim_per = 1,
-                            ind_var = c('use_type', 'bldg_grade', 'lot_sf', 'tot_sf', 'beds', 
+                            ind_var = c('present_use', 'grade', 'sqft_lot', 'sqft','beds',
                                         'baths', 'latitude', 'longitude'),
                             ...){
   
@@ -379,7 +462,7 @@ modelComparison <- function(data_obj,
 
   ## Hedonic sales Example
   he_hpi <- hedIndex(trans_df = hed_df,
-                     estimator = 'robust',
+                     estimator = 'base',
                      log_dep = TRUE,
                      dep_var = 'price',
                      ind_var = ind_var,
@@ -547,11 +630,11 @@ modelComparison <- function(data_obj,
 
 ```
 
-We start by dividing the data into assessment areas, first removing areas 23 as it does not have enought single family and townhome sales to effectively model.  
+We start by dividing the data into assessment areas, first removing areas 23 as it does not have enough single family and townhome sales to effectively model.  
 
 ```{r}
 
-  geo_df <- seattle_sales %>% dplyr::filter(!area %in% 23)
+  geo_df <- seasales_df %>% dplyr::filter(!area %in% 23)
   geo_ <- split(geo_df, geo_df$area)
 
 ```
