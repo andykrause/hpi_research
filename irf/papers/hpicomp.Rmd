@@ -1,19 +1,22 @@
 ---
 title: "A Multi-Criteria Evaluation of House Price Indexes\n\n"
-subtitle:   
 author:
-  - Andy Krause* -- Zillow Group -- andykr @ zillowgroup.com
-  - Reid Johnson -- Zillow Group -- reidj @ zillowgroup.com
+- "Andy Krause^ -- Zillow Group "
+- "Reid Johnson -- Zillow Group "
 date: "`r Sys.Date()`"
-output: 
-  html_document:
-editor_options: 
+output:
+  pdf_document: default
+  html_document: null
+subtitle: null
+editor_options:
   chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
   knitr::opts_chunk$set(echo = FALSE, collapse=TRUE, messages=FALSE, eval=TRUE, warning = FALSE, comment = FALSE, message = FALSE)
 ```
+
+^Corresponding Author -- andykr @ zillowgroup.com
 
 &nbsp;
 
@@ -31,7 +34,7 @@ Since the seminal Bailey et al. (1963) study there has been considerable and sus
 
 Research aimed at measuring the quality of house price indexes has received considerable less attention.  Part of this lack of work likely stems from the fact that a house price index is created to measure a phenomena without an observable ground truth -- the price or value movements of a given market -- and therefore is, under any method or approach, a proxy at best.  This inherent fact also means that any approach to measuring model quality necessarily comes with shortcomings and/or assumptions. In short, there is no perfect measuring stick for a house price index. 
 
-In terms of house price creation, traditionally, house price indexes have been derived from highly interpretable (statistical) modeling approaches such as linear models.  Both the repeat sales and the hedonic approach -- the two most commonly published approaches (Hill 2012; MacGuire et al 2013) -- are generally linear regression-based models. Standard statistical models are a good fit for this task because the coefficient estimates are easily convertible into standardized price indexes. House price index generation is viewed as an inferential endeavor in which the attribution of the effects of time on market movements is sought, rather than a pure prediction problem. As a result, many of the rapidly growing set of machine learning algorithms -- e.g. support vector machines, random forests and neural networks -- have not been used in the production of price indexes due to the fact that they do not directly and/or easily attribute price impacts to the variables or features in the model. However, with the rise of interpretability methods (Ribiero et al. 2016; Doshi-Velez and Kim 2017; Molnar 2019), these 'black-box' models can be made explainable and suitable for a more diverse set of tasks. *
+In terms of house price creation, traditionally, house price indexes have been derived from highly interpretable (statistical) modeling approaches such as linear models.  Both the repeat sales and the hedonic approach -- the two most commonly published approaches (Hill 2012; MacGuire et al 2013) -- are generally linear regression-based models. Standard statistical models are a good fit for this task because the coefficient estimates are easily convertible into standardized price indexes. House price index generation is viewed as an inferential endeavor in which the attribution of the effects of time on market movements is sought, rather than a pure prediction problem. As a result, many of the rapidly growing set of machine learning algorithms -- e.g. support vector machines, random forests and neural networks -- have not been used in the production of price indexes due to the fact that they do not directly and/or easily attribute price impacts to the variables or features in the model. However, with the rise of interpretability methods (Ribiero et al. 2016; Doshi-Velez and Kim 2017; Molnar 2019), these 'black-box' models can be made explainable and suitable for a more diverse set of tasks. 
 
 In this work we highlight the use of partial dependence -- a model-agnostic interpretability method (Molnar 2019) -- to generate house price indexes from a machine learning and inherently non-interpretable model. One of the major appeals of using a model-agnostic approach is that any underlying machine learning model class could be used on the data. In this work we use a random forest, one of the more common and intuitive machine learning models. However, this choice of model class is only for convenience, as a neural network, for example, could just as easily have been used. Along with an explanation of the method and examples, the results from the application of a model-agnostic interpretability method are compared to the more traditional repeat sales and hedonic model approaches. The findings suggest that the interpretable random forest (IRF) appraoch to house price generation is competitive with the standard approaches across some measure of index quality, but deficient in others. 
 
@@ -48,7 +51,7 @@ The second criteria under 'constructability' is the complexity of the model esti
 
 #### Output-based metrics
 
-Index accuracy is the most common output metric discussed in the literature. As noted above, there is no exact ground truth of the movement of aggregate house prices in a region so any approach here is a proxy, with limitations. The favored approach in the existing literature is to test the ability of an index to predict the second sale of repeat transaction pair (Bogin et al 2019).  This approach takes the first sale of a pair, indexes that price forward by the given index to the date of the repeat transaction and then computes an error measure where the error is the difference in the predicted value and the actual price of the second sale in the pair.  When measuring the error -- or the difference between predicted and actual second sale -- we use log metrics due to their ability to avoid denominator bias and the skewness in possible error metrics that results (Tofallis 2015).  The formula for calculating errors is: -->
+Index accuracy is the most common output metric discussed in the literature. As noted above, there is no exact ground truth of the movement of aggregate house prices in a region so any approach here is a proxy, with limitations. The favored approach in the existing literature is to test the ability of an index to predict the second sale of repeat transaction pair (Bogin et al 2019).  This approach takes the first sale of a pair, indexes that price forward by the given index to the date of the repeat transaction and then computes an error measure where the error is the difference in the predicted value and the actual price of the second sale in the pair.  When measuring the error -- or the difference between predicted and actual second sale -- we use log metrics due to their ability to avoid denominator bias and the skewness in possible error metrics that results (Tofallis 2015).  The formula for calculating errors is: 
 
 $Error_i = log(price_{i, pred}) - log(price_{i, actual})$
 
@@ -78,11 +81,11 @@ This is an appealing metric as consistent, monotonic changes over a four month s
 
 In addition to the fundamental, estimator-based issues stemming from volatility, a highly noisy index is also hard to rationalize to users of indexes, particularly those looking to make important financial decisions based on the (perceived) market changes suggested by the index.  Simply put, it is hard to build trust with users when indexes have a high noise-to-signal ratio. 
 
-Conversely, we shouldn't look to fully minimize volatility either as, taken to an extreme, a perfectly flat index would optimize volatility reduction but at the cost of being useful at all. It is a delicate balance.  In this work, we measure volatilty as the standard deviation of a rolling time window (3 months in this case), but look at the comparison only relatively.  We balance off volatility against other measure in a subjective, criteria-ranking approach not as an objective measure to be optimized.  As a result, it operates somewhat like the 'constructability' criteria -- something that should be taken into account by developers and users, but not a criteria to necessarily be optimized against.  
+Conversely, we shouldn't look to fully minimize volatility either as, taken to an extreme, a perfectly flat index would optimize volatility reduction but at the cost of being useful at all. It is a delicate balance.  In this work, we measure volatility as the standard deviation of a rolling time window (3 months in this case), but look at the comparison only relatively.  We balance off volatility against other measure in a subjective, criteria-ranking approach not as an objective measure to be optimized.  As a result, it operates somewhat like the 'constructability' criteria -- something that should be taken into account by developers and users, but not a criteria to necessarily be optimized against.  
 
 Finally, prior work has established the need to derive indexes for small geographic regions or other local definitions of submarkets (Haurin et al 1991; Ren et al 2017). Our third new measure of index quality is the relative change in the above metrics when the index is applied to smaller subregions within the larger market. We term this Local Specificity.  
 
-In the evaluations that follow we will focus on four objective measures of house price index performance: 1) Absolute accuracy via repeat transactions; 2) Relative accuracy via AVM improvement; 3) Revision; and 4) Volatility.  With then look at the relative diffrences of accuracy measures at global and local (to our data) levels in order to measure the Local Specificity or ability of the index to discern local trends while also maintain overall predictive ability. In the discussion section we also layer in considerations of the  'constructability' dimension on indexes to highlight some of the tradeoffs between ease of creation and objective model results. 
+In the evaluations that follow we will focus on four objective measures of house price index performance: 1) Absolute accuracy via repeat transactions; 2) Relative accuracy via AVM improvement; 3) Revision; and 4) Volatility.  With then look at the relative differences of accuracy measures at global and local (to our data) levels in order to measure the Local Specificity or ability of the index to discern local trends while also maintain overall predictive ability. In the discussion section we also layer in considerations of the  'constructability' dimension on indexes to highlight some of the tradeoffs between ease of creation and objective model results. 
 
 ## Emprical Tests
 
@@ -212,7 +215,7 @@ The data includes the following information for all 150,876 transactions remaind
 | pinx   | chr  | ..0007600046  | Tax assessor parcel identification number |
 | sale_id  | chr | 2021..2621   | Unique sale identifier   |
 | sale_price  | integer  | 308900   | Sale price  |
-| sale_date  | Date   | 2012-02-22   | Date of sale   |
+| sale_date  | Date   | 2021-02-22   | Date of sale   |
 | use_type  | factor  | sfr   | Structure type   |
 | area  | factor  | 15   | Tax assessor defined neighborhood or area   |
 | lot_sf  | integer  | 5160   | Size of lot in square feet  |
@@ -228,7 +231,7 @@ The data includes the following information for all 150,876 transactions remaind
 
 Within the data, there are 13,697 sale-resale pairs. This set of repeat transactions is limited to those which have at least a one-year span between the two sales. This constraint is applied to avoid potential home flips, which more often than not violate constant quality assumptions (Steele and Goy 1997; Clapp and Giacotto 1999).
 
-In addition to comparison on performance at the global (King County) level, we also break the data into 19 submarkets (Figure 3).  These submarkets are based the King County Assessor's 95 major residential tax assessment zones.  Using combinatiosn of tax assessment zones is preferable to common disaggregating regions such as Zip Codes as the tax assessment zones are relatively balanced in total housing unit counts and purposefully constructed to follow local housing submarket boundaries.
+In addition to comparison on performance at the global (King County) level, we also break the data into 19 submarkets (Figure 3).  These submarkets are based the King County Assessor's 95 major residential tax assessment zones.  Using combinations of tax assessment zones is preferable to common disaggregating regions such as Zip Codes as the tax assessment zones are relatively balanced in total housing unit counts and purposefully constructed to follow local housing submarket boundaries.
 
 &nbsp;
 
@@ -241,6 +244,8 @@ In addition to comparison on performance at the global (King County) level, we a
 ## Results  
 
 We begin by comparing the three approaches to index generation (Figure 4).  The Hedonic and Repeat Sales approaches show very similar movements over time, with, perhaps, the only noticable systematic difference being slightly higher index values from the Hedonic index during the 2017 to 2020 period.  The index derived from an Interpretable Random Forest (IRF) tells a much different story.  The appreciation and corresponding depreciation rates (in late 2022) are considerably smaller in magnitude.  Additionally, the overall month-over-month volatility is also much smaller as evidenced by the very smooth movements in prices suggested by this approach.  Without even computing volatility it is evident that the IRF method is clearly the smoothest of the estimation approaches.  
+
+&nbsp;
 
 **Figure 4: County Level Indexes**
 
@@ -297,7 +302,7 @@ In terms of bias, all indexes are considerably better than the baseline.  This i
 | :----- | :-----: | :-----: | :-----: |:-----: |
 | Baseline (no index) | -0.128 | -0.148 | 0.169 | 0.224 |  
 | Repeat Sales   | 0.016  | 0.009  | 0.124 | 0.174 |
-| Hedonic  | 0.003 | -.006 | 0.121 | 0.172 | 
+| Hedonic  | 0.003 | -0.006 | 0.121 | 0.172 | 
 | IRF  |  -0.018 | -0.027 | 0.125 | 0.174 | 
 
 Examining the index biases over time, we see a similar trend to the Absolute Accuracy measures.  All methods lag price appreciation during period of rapid price growth and, similar, lag price depreciation during periods of market decline.  Of these, the IRF method present the biggest lags in either direction.  
@@ -406,6 +411,7 @@ The novel Relative Accuracy approach that we developed and test in this paper sh
 | IRF  | Worst | Near Best | Almost None | | Gains in Accuracy | Moderate Data and Complex Method |  
 
 Our findings on revision echo those of prior work (ex. Van de Minne 2020); namely that repeat sales approaches are often subject to high rates of revision, rates that are much higher than those from hedonic based methods. The novel IRF method that we explore in this paper is subject to almost no revision as we build out a series of increasing longer indexes over time.  Like the repeat sales tendency for revision, the IRF's stability against it is a product of it method of construction.  For use cases where one might be willing to trade some accuracy for reduced revision and IRF approach may be a good choice.  
+
 The above results all cover indexes at a relatively wide market scale -- that of King County, Washington the heart of the Seattle MSA and home to over 2 million people.  When we move to local indexes at about 1/20 the overall size of the county there are marked changes in the accuracy of the indexes.  At this submarket size the repeat sales indexes become considerably less performant compared to the hedonic and IRF indexes.  Given that repeat sales methods only use a small sample of the data -- those homes that sell twice in the study period -- reducing either the geographic or temporal sample can have much bigger impacts on repeat sales indexes that other than use all transactions from the market. Users looking to measure smaller region price movements should be cautious of employing repeat sales approaches, particularly over short time period such as five years. 
 
 Finally, we look at the constructability of each method.  The repeat sales approach is the most easily built.  It requires the simplest data -- no facts about the home other than address or unique identifier -- and, often, uses the simplest estimation models such as weighted linear models.  Hedonic method require more complex data as they need information on the home attributes such as home size, age, etc.  The estimation models can be relatively simple, however, with linear models and temporal dummy variables offering the baseline method here.  The IRF method needs the same data as the Hedonic model but requires slightly more complex and harder to explain and replicate estimation method.  The compute time is also generally longer, though it is heavily dependent on the hyperparameters that are used.  
@@ -414,7 +420,7 @@ Overall, our recommendations are the following:
 
 * A repeat sales approach is the preferred option (over a median sale price, for example) if you do not have home level attribute data. However, you should be wary of using this approach if your market is small and/or your use case is subject to negative effects from revisions.
 * A hedonic model offers consistently high performance across all criteria, is relatively easy to estimate and can be used at more granular sub-market levels.  If you have home level attribute data, you should start with this approach due to its flexibility.
-* The novel IRF method struggles during times of quick price movements and should be used with caution. At this point in time we'd only recommend use this if low volatity and low revision are your primary criteria, particularly in use cases where it is supporting time adjustment in valuation cases like an AVM.   
+* The novel IRF method struggles during times of quick price movements and should be used with caution. At this point in time we'd only recommend use this if low volatility and low revision are your primary criteria, particularly in use cases where it is supporting time adjustment in valuation cases like an AVM.   
 
 ### Reproducibility and Software
 

@@ -1,51 +1,55 @@
-library(tidyverse)
-library(digest)
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#
+#. Run a repeat transactions (sales) experiment
+#
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-## Custom packages 
-library(hpiR) # Ensure this is v 0.3.0 from Github, not 0.2.0 from CRAN
+## Set Experiment Setup to use
 
-source(file.path(getwd(), 'irf', 'scripts', 'wrapper_function.R'))
+  exp <- 'exp_5'
 
-exp = 'exp_5'
-exp_ <- readRDS(file=file.path(getwd(), 'data', exp, 'exp_obj.RDS'))
+  # Read in experiment object
+  exp_ <- readRDS(file=file.path(getwd(), 'data', exp, 'exp_obj.RDS'))
+  
+## Load libraries
+  
+  library(tidyverse)
+  library(hpiR) # Ensure this is v 0.3.0 from Github, not 0.2.0 from CRAN
+ 
+ ## Load custom functions  
+  source(file.path(getwd(), 'irf', 'scripts', 'wrapper_function.R'))
 
+### Run analysis for each submarket -----------------------------------------------------------------
+  
 ## All King County
 
-  # Five Year
-  rt_5 <- rtWrapper(exp_obj = exp_,)
-
-  saveRDS(rt_5, file = file.path(getwd(), 'data', exp_$name, paste0('rt_results_obj.RDS')))
+  exp_$model <- 'hed'
+  exp_$sms <- 'all'
   
-  rm(rt_5)
+  # Five Year
+  rt_obj <- expWrapper(exp_obj = exp_,
+                       partition = 'all')
+
+  saveRDS(rt_obj, file = file.path(getwd(), 'data', exp_$name, paste0('rt_results_obj.RDS')))
+  
+  rm(rt_obj)
   gc()
   
 ### Submarket
 
-  subm <- c('A', 'B', 'C', 'D', 'E', 'F', 'G', 'I', 'J', 'K', 'L', 'M', 'N',
-            'O', 'P', 'Q', 'R', 'S')
   
   exp_$ind_var = c('use', 'grade', 'sqft_lot', 'age', 'sqft', 'beds', 'baths',
                    'latitude', 'longitude')
+  exp_$sms <- 'submarket'
+  subm <- c('A', 'B', 'C', 'D', 'E', 'F', 'G', 'I', 'J', 'K', 'L', 'M', 'N',
+            'O', 'P', 'Q', 'R', 'S')
   
-  rt_subm_ <- list()
+  rt_subm_ <- purrr::map(.x = subm,
+                         .f = rtWrapper,
+                         exp_obj = exp_)
   
-  for (i in subm){
-  
-    x_obj <- exp_
-    
-    ss_ids <- x_obj$hed_df %>%
-      dplyr::filter(submarket == i) %>%
-      dplyr::select(trans_id)
+  rt_obj <- unwrapPartitions(rt_subm_)
 
-    x_obj$rt_df <- x_obj$rt_df %>%
-      dplyr::filter(trans_id1 %in% ss_ids$trans_id)
-    x_obj$hed_df <- x_obj$hed_df %>%
-      dplyr::filter(trans_id %in% ss_ids$trans_id)
-    rt_ <- rtWrapper(exp_obj = x_obj)
-    rt_$subm <- i
-    rt_subm_[[i]] <- rt_
-  }
-  
-  saveRDS(rt_subm_, file = file.path(getwd(), 'data', exp_$name, paste0('rt_subm_results_obj.RDS')))
+  saveRDS(rt_obj, file = file.path(getwd(), 'data', exp_$name, paste0('rt_subm_results_obj.RDS')))
   
   

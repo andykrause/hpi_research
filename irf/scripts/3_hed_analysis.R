@@ -1,22 +1,38 @@
-library(tidyverse)
-library(digest)
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#
+#. Run a hedonic (sales) experiment
+#
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-## Custom packages 
-library(hpiR) # Ensure this is v 0.3.0 from Github, not 0.2.0 from CRAN
+ ## Set Experiment Setup to use
 
-source(file.path(getwd(), 'irf', 'scripts', 'wrapper_function.R'))
+  exp <- 'exp_20'
 
-exp = 'exp_5'
-exp_ <- readRDS(file=file.path(getwd(), 'data', exp, 'exp_obj.RDS'))
+ # Read in experiment object
+  exp_ <- readRDS(file=file.path(getwd(), 'data', exp, 'exp_obj.RDS'))
 
-## All King County
+  ## Load libraries
 
-  # Five Year
-  hed_5 <- hedWrapper(exp_obj = exp_,)
+  library(tidyverse)
+  library(hpiR) # Ensure this is v 0.3.0 from Github, not 0.2.0 from CRAN
 
-  saveRDS(hed_5, file = file.path(getwd(), 'data', exp_$name, paste0('hed_results_obj.RDS')))
+  ## Load custom functions  
+  source(file.path(getwd(), 'irf', 'scripts', 'wrapper_function.R'))
+
+### Run analysis for each submarket -----------------------------------------------------------------
+
+  ## All King County
+
+  exp_obj$sms <- 'all'
+
   
-  rm(hed_5)
+  
+  # Five Year
+  hed_obj <- hedWrapper(exp_obj = exp_,)
+
+  saveRDS(hed_obj, file = file.path(getwd(), 'data', exp_$name, paste0('hed_results_obj.RDS')))
+  
+  rm(hed_obj)
   gc()
   
   ### Submarket

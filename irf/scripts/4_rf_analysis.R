@@ -13,8 +13,9 @@ exp_ <- readRDS(file=file.path(getwd(), 'data', exp, 'exp_obj.RDS'))
 
   # Five Year
   rf_5 <- rfWrapper(exp_obj = exp_,
-                    sim_per = .05,
+                    sim_per = .01,
                     ntrees = 100,
+                    log_dep = FALSE,
                     estimator = 'pdp')
 
   saveRDS(rf_5, file = file.path(getwd(), 'data', exp_$name, paste0('rf_results_obj.RDS')))
@@ -37,15 +38,16 @@ exp_ <- readRDS(file=file.path(getwd(), 'data', exp, 'exp_obj.RDS'))
     x_obj <- exp_
     
     ss_ids <- x_obj$hed_df %>%
-      dplyr::filter(submarket == x) %>%
+      dplyr::filter(submarket == i) %>%
       dplyr::select(trans_id)
     
     x_obj$rt_df <- x_obj$rt_df %>%
       dplyr::filter(trans_id1 %in% ss_ids$trans_id)
     x_obj$hed_df <- x_obj$hed_df %>%
       dplyr::filter(trans_id %in% ss_ids$trans_id)
-    rf_ <- rfWrapper(exp_obj = x_obj)
-    rf_$subm <- x
+    rf_ <- rfWrapper(exp_obj = x_obj, 
+                     log_dep = TRUE)
+    rf_$subm <- i
     rf_subm_[[i]] <- rf_
   }
   
