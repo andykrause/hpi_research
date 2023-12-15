@@ -1,0 +1,13 @@
+---
+title: "Future Ideas"
+author: "Andy Krause"
+date: "11/3/2019"
+output: html_document
+---
+
+* Plot error by span, make non linear adjustment
+* Multiple small time periods to see effects of 'knowning' latest first sales
+* Naive vs known Renos
+* Those spanning peaks and troughs
+* Look into Revision, Vol and Error of these
+* Note rise of iBuyers in many markets mean we'll see more short holds in public datasets

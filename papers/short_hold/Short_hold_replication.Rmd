@@ -1,0 +1,392 @@
+---
+title: 'Short Holds and Repeat Sales Models'
+subtitle: 'A Replication and Extension'
+author: "Andy Krause : Zillow Group : Seattle, WA"
+date: "11/08/2019"
+header-includes:
+   - \usepackage{setspace}
+   - \doublespacing
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+<!-- <div style="line-height: 2em;"> -->
+
+```{r, echo = FALSE, comment = FALSE, warning = FALSE, message = FALSE}
+  library(ggplot2)
+  library(magrittr)
+  library(ggridges)
+  #base_path <- '~/projects/ml_hpi_research/'
+  base_path <- 'c:/code/research/ml_hpi_research'
+  res_ <- readRDS(file.path(base_path, 'data', 'short_hold', 'paper.RDS'))
+```
+
+## Abstract
+
+A number of standard criticisms are often leveled at the use of repeat sales models for developing house price indexes.  Steele and Goy (1997) offered another; that first sales are different than second sales due to buyer differences in information, motivation and other characteristics that impact sales price.  Their work suggest this effect biases repeat sales models and they produced a method to measure and de-bias the resulting indexes.  Information asymmetry lay at the heart of the rationale for these 'opportune' buyers and sellers.  In this paper I test if this phenomena remains some 20 years later -- and in a time of rapidly reduced information asymetry in the real estate home buying space. Additionally, I extend the Steele and Goy approach to weight the bias correction by the length of the property hold, a condsideration mentioned by the original authors, but not acted on in their work.
+
+## Introduction and Previous Work
+
+House price indexes are crucial tools in understanding residential real estate markets.  As a result, there has developed a broad literature around the methods to estimate them.  Two particular methods -- the hedonic model and the repeat sales model -- are far and away the most commonly used methods in academic research on the topic (Hill 2013; Gunterman et al 2016).  While median-based approaches are still prevalent in industry and geographic areas with limited data, they have largely been ignored or employed as comparative controls in the literature.
+
+Both the hedonic model and the repeat sales model have their shortcomings (Meese and Wallace 1997), and one is not necessarily 'better' than another in any given situation.  The hedonic approach may suffer from model misspecification (Meese and Wallace 1997), spatial autocorrelation (Can and Meglogube 1997) and /or temporally varying coefficients (Case et al 1991).  All factors that can bias the resulting indexes that are derived.  
+
+Repeat sales, on the other, often face three standard criticisms:
+
+* The set of repeated transactions is not representative of the universe of all sales or homes (Clapp et al 1991; Gatzlaff and Haurin 1997; Nagaraja et al 2014)
+* The constant quality assumnptions inherent in repeat sales models are violated; either by depreciation or renovations (Case et al 1991; Chau et al 2005)
+* Revision to past index values as new data arrives (CLapp and Giacotto 1999; Butler et al 2005; Clapham et al 2006; Deng and Quigley 2008)
+
+Steele and Goy (1997) offered an additional hypothesis regarding potential bias in repeat sales models.  They argued that sales that sell twice, especially in short succession, are much more likely to exist in the tails of the value/price distribution.  In other words, these sales are more likely to be driven by different buyer/seller motivations or levels of sophistication, resulting in measure of appreciation that do not generalize well to the larger universe of sales or homes.  
+
+More specifically, they argue that the first sale of sale pair -- again especially one with a short holding period -- is more likely to involve an 'opportune' buyer; one who, using superior market knowledge, finds deals in the marketplace.  After quickly preparing these homes for market with new carpet and some paint, these 'opportune' buyers then sell for a large profit.  In short, 'opportune buyers' can spot a deal and capitalize quickly on it. Steele and Goy do make very clear that they are not talking about standard flippers here, but, rather, buyer and (re) sellers who buy low and sell high due to their superior market knowledge and not any change in quality to the home.  Finally, they note that this phenomenon is most likely in rising market (as their empirical data covers).  A few comments in passing, they note that in down markets, perhaps the opposite would be true in that the only owners opting for short holds of properties would be those forced to sell and thereby we'd expect to see short hold in down market over estimate the decrease in prices, much like the short holds can overestimate appreciation in rising markets.  
+
+At the core of their argument is that 'opportune' buyers are able to exploit informational asymmetries to find 'deals' in the market.  Their initial empirical work covers data from 1988 to 1990, at a time well before real estate listings and information were widely available to consumers -- and not just agents.  In today's marketplace, any consumer can find most available homes on Zillow, Redfin, Realtor.com and/or local MLS websites. Photos, previous sale prices, home information, AVM estimated values and much more are often available as well.  In short, the information asymmetries of the 1980s have largely disappeared.  Has the 'opportune buyer' effect found by Steele and Goy dissappeared as well?  The first goal of this paper is to test this assertion by replicating the Steele and Goy analysis with a much newer (and larger) set of data.  
+
+One of Steele and Goy's key findings was that the bias on house price indexes from short holds is determined by the number of first (purchase) or second (resale) sales in each period and they create a method to correct for, or de-bias, indexes. Related, they also note that very short holds (think less than a year) are more likely to have the 'opportune' buyer bias, however, they do not factor this into their de-biasing method.  In this paper, I extend their original de-biasing approach to include (inverse) weighting based on length of hold. To test performance, the original Steele and Goy method along with my extension are compared against standard repeat sales methods and a hedonic method of index generation. 
+
+### The Steele and Goy Approach
+
+Steele and Goy's (1997) original work presented a five step approach to identifying and correction for biases in repeat sales models.  They begin by estimating a standard hedonic price model with the available data.  In addition to standard structural, locational and temporal independent variables they add dummy variables indicating whether a sale is the first sale of a repeat pair, the second pair or not involved in a repeat pair.  Using the 'not involved' as the reference case, they estimate the impact of being a first or second sale on the sale price.  In their sample -- from Waterloo, ON 1988 to 1990 -- they find that first sales sell at a 2.2% discount and second sales sell at a very slight 0.2% premium. This represents a difference of 2.4% between being a first or a second sale. They extract this differene as a scalar, $\gamma$.  
+
+Using the $\gamma$ value from the hedonic model, they then generate their bias correction vector, the $R$ vector.  The $R$ vector is calculating by first regressing the standard repeat sales design matrix, $Q$ -- the matrix of -1s, 0s and 1s for each observation -- against a vector of 1s. This initial calculation provides a vector giving the relative occurance of second versus first sales.  The higher the number of second sales, the higher the bias is likely to be.  This initial vector is then multiplied by the scalar, $\gamma$ to create the $R$ vector. 
+
+Next, they estimate a standard repeat sales regression model, using the aformentioned $Q$ design matrix.  They do not use the popular Case-Shiller weighted approach as this approach actually gives more weight to short holds versus long holds and doing so run against the authors own hypothesis that short holds are less representative of true market appreciation than long holds. 
+
+Using the coefficients from the standard repeat sales model, they adjust these figures with the R vector.  If the $\gamma$ value is positive and the R vector value is positive, then the coefficient from the repeat sales model will be adjusted downwards in magnitude to the relative number of second sales to first sales in that period.  This adjusted set of repeat sales coefficient is used to create their bias adjusted housing price index.  
+
+What they find, as a recap, is that the bias adjustment process does decrease the overall index values -- especially at the end of the index. At the core of the 'opportune buyer' hypothesis, is that the influence of opportune purchases are mostly likely to be seen on the shortest of the short hold sales pairs.  The authors briefly test this phenomenon with an interaction term in their hedonic model, but then abandon this line of thinking when creating their adjustment factors -- the $R$ vector. In reviewing their results, the authors make a few worthwhile caveats about other potential factors driving their findings: 1) period aggregation bias may artificially inflate repeat sales measures in time of significant market movements; and 2) that in a down market opportune buyers may give way to forced sellers as the main determinant of differential between first and second sales.  These potentially mediating factors are not tested. Finally, the author's data set covers only three years, a time period for which even the longest observed hold of a repeat sales transaction is somewhat short.  
+
+My aims in this paper are two-fold: 1) To test if the 'opportune buyer' hypothesis still hold today -- a time where information asymmetries have been reduced; and 2) to extent their original approach to test:
+
+* If the same results hold in a much longer study period
+* If only adjusting for very short holds changes the bias adjustment factor
+* If the same phenomenon occurs in down markets
+* If period aggregration matters
+
+## Results
+
+&nbsp;
+
+### Data
+
+Data for this study were gathered from the King County Assessor (Seattle).  The dataset includes 117,523 sales of single family and townhome sales in the City of Seattle over the January 1, 1999 to October 1, 2019 time frame.  The raw transactions data is found in a single archived file.  These data were matched to home characteristics data from the beginning (1999) and the end (2019) of the study period.  By doing so, I was able to identify homes which had either: 1) Been demolished and rebuilt; 2) Been remodeled; and 3) Been demolished and dissappeared from the parcel record -- likely identicative of a parcel assemblage and redevelopment to a higher density use.  Any home falling into the above three categories was removed from the data as it would violate the constant quality assumptions implicit in a repeat transaction model (issues 1 and 2) and/or its transaction was likely indicative of a land sale due to the impending demolition (issue 3). A number of other filters were applied to the data to eliminate key punch errors and other non-arms lenghth transactions.
+
+Within these 117,523 sales there are 43,275 repeat transactions.  Around half of these repeat transaction involve a property that sold at least three times in the twenty year time period.  The summary statistics in Table 1 suggest that the set of non-repeat sales are slightly larger, more expensive and of better quality, echoing finding by others that homes that sell more than once trend toward smaller, starter homes. (Clapp and Giacotta 1992; Case et al 1997; Gatzlaff and Haurin 1997)
+
+**Table 1: Summary Statistics**
+
+| Field | Non Repeat Sales | Repeat Sales |
+| :------- | ---------: | ---------: |
+| Price | $536,404 | $499,267 |
+| Sqft| 1,796 | 1,746 |
+| Beds| 3.12 | 3.08 |
+| Baths (Full)| 1.38 | 1.40 |
+| Quality | 7.43 | 7.30 |
+| Lot Size | 5,382 | 4,978 |
+
+In Steele and Goy's original work, they were working with a short, three-year time span in which the likelihood of a home selling more than two times was miminal. Sales in their dataset were classified as either First Sales (purchase), Second Sales (resale) or Neither (was not part of a purchase-resale). In the twenty year time frame of this study, that likelihood of a home selling more than twice is much greater.  What this means is that many sales will be both a Second Sale and a First Sale -- as an example, the second and third sales for a home that sold four time over that period.  As a result, I've added a fourth sale status classification, that of 'Both'.
+
+The count of sale status is shown in Table 2.  Nearly 40% of sales were only sold once during the period, with another 10% being sold more than twice.  The remaining 50% of homes in the sample were sold exactly twice during the study period.
+
+**Table 2: Sales by Status**
+
+| Status | Count |
+| :-------: | :------: |
+| None | 43,464 | 38% |
+| First | 29,418 | 26% |
+| Second | 29,821 | 26%
+| Both | 12,079 | 10% |
+
+The density of the various sales by status across time is shown below in Figure 1.  The location of First and Second sales across time mimics Steele and Goy's finding as well as common sense.  Most second sales occur at the end of the period, most first sales at the beginning.  Interestingly, most of the 'Both' sales occur dring the initial 2003 to 2007 runup, particularly in 2006 and 2007. For the 'None' category, the total density of sales tracks general market movements -- higher volumes during periods of price growth.
+
+**Figure 1: Sale Status over Time**
+
+```{r echo=FALSE, fig.width = 9, comment = FALSE, warning = FALSE, message = FALSE}
+
+  ggplot(res_$full$hed, aes(x=trans_period, y = status, color = status)) +
+    ggridges::geom_density_ridges(scale=3, alpha = .4) +
+    theme_ridges() +
+    scale_y_discrete(expand = c(0.1,0)) +
+    scale_x_continuous(breaks = seq(1, 241, by = 24), labels = seq(1999,2019,by=2)) +
+    scale_color_manual(name = 'Sale Status', values = c('gray10', 'darkgreen', 'blue', 'red')) +
+    theme(legend.position = 'none') +
+    xlab('') +
+    ylab('') +
+    ggtitle('Sale Volume by Repeat Sale Order')
+
+```
+
+### Standard
+
+I begin by replicating the Steele and Goy process on the entire 20-year time frame of the data for the entirety of the city. The first step involves estimating a set of hedonic price models to determine if there are discounts (premiums) for first (second) sales in a repeat sales pair.  The sample of data in the hedonic model includes all sales, with labels for sales that are first or second sales in a hedonic model.
+
+The initial hedonic model specification controls for the following types of variables:
+
+* Structural: Property type (SFR or Townhome), Home Size, Home Quality, Bedrooms, Bathrooms, Effective Age
+* Lot: Lot Size
+* Locational: Assessment Area Code, Waterfront
+* Temporal: Month of Sale (dummy variable)
+
+This initial model has an residual standard error of 0.1964, an adjusted R2 of 0.8603 and an F-statistics of 2490 on 284/114497 degrees of freedom.  I then take the residuals from this model and regress them against the four different sale classifications -- First Sale, Second Sales, Both or None. The variables of interest show a 3.3% discount for First sales and a 2.1% premium for Second sales.  Sales of Both show a slight 0.5% premium, which is marginally significant. Under the Steele and Goy framework this represent a likely per sale pair bias of 5.4%, a scalar they term $\gamma$.
+
+Next, I use this $\gamma$ to generate the $R$ vector -- or the period specific bias correction based on the Steele and Goy's original formula.  The figure below shows the period specific bias indicated by this metric.
+
+The final step includes estimating a standard (non-Case-Shiller weighted) repeat sales regression model.  I then apply the bias correction in the $R$ vector to the original coefficients.  Using the original coefficient and the adjusted (bias-corrected) coefficients, I convert both to an index, with 1999 as the base period, 100.  I've also used the temportal dummy coefficients from the hedonic model above to create a comparative index.  These three indexes are shown in Figure 2 below.
+
+**Figure 2: Index Comparison**
+
+```{r, echo = FALSE, fig.width = 8, fig.height = 6.5}
+
+  ggplot(res_$full$index %>%
+           dplyr::filter(model != 'WgtBias'),
+         aes(x = time, y = index, group = model, color = model)) +
+    geom_line() +
+    scale_x_continuous(breaks = seq(1, 253, by = 24), labels = seq(2000, 2020, by = 2)) +
+    scale_color_manual(name = "Model Type", values = c('blue', 'red', 'black')) +
+    ylab('Index Value\n') +
+    xlab('\nTime') +
+    ggtitle('Comparison of Standard and SteeleGoy indexes (Hedonic as Comparison)') +
+    theme(legend.position = 'bottom',
+          plot.title = element_text(hjust = 0.5))
+
+```
+
+As the figure shows -- and as alluded to by the $\gamma$ value -- the Steele and Goy approach suggests a significant bias correction in the downward direction (5.4%).  This correction grows over time, as would be expected given the compounding nature of an index.  After the bias correction, the repeat sales index track very closely to the hedonic index for the early periods, but then dips well below in the latter half of the time period. Overall, the Steele and Goy adjustment process seems to be reasonable to perhaps too high in magnitude as suggested by the initial hedonic model.
+
+### Weighting
+
+In Steele and Goy's original paper, they hypothesized that very short holds are more likely to involve 'opportune' buyers and therefore more likely to exert bias on the repeat sales model.  They test for this by interacting sale order (first or second) with repeat sales span and find a significant temporal interaction effect for first sales, but not for second sales.  They, however, do not factor this into their ultimate bias correction method.
+
+To extend their method here, I test downweighting long holds in the calculate of the R vector.  More specifically, I weight all observations in the $Q$ design matrix by the inverse of their hold span divided by the maximum hold span.  As there are 250 periods in this data set, a hold span of 10 months would get a weight of 1 - (10/250), or .96, while a span of 200 would get a weight of 0.20.
+
+Recalculating the $R$ vector based on this weighting results in smaller bias corrections (as would be expected); See Figure 3. The results here track the hedonic model even better, which suggests that some manner of weighting based on hold span is not only theoretically appealing, but also provides empirically desirable results.
+
+**Figure 3: Index Comparison with New Weighting Method**
+
+```{r, echo = FALSE, fig.width = 8, fig.height = 6.5, warning = FALSE, comment = FALSE, message = FALSE}
+
+  ggplot(res_$full$index,
+         aes(x = time, y = index, group = model, color = model)) +
+    geom_line() +
+    scale_x_continuous(breaks = seq(1, 253, by = 24), labels = seq(2000, 2020, by = 2)) +
+    scale_color_manual(name = "Model Type", values = c('blue', 'red', 'purple', 'black')) +
+    ylab('Index Value\n') +
+    xlab('\nTime') +
+    ggtitle('Comparison of Standard, SteeleGoy and Weighted Bias Indexes') +
+    theme(legend.position = 'bottom',
+          plot.title = element_text(hjust = 0.5))
+
+```
+
+Due to the substantial growth in home values over the past two decades in Seattle, the full twenty year plot can make distinguishing differences between the the different approaches difficult.  Figure 4, zooms in to show the most recent 40 month period.  Additionally, Table 3 illustrates the indexes values for all models on September 1st of each year.  Differences start small, but add up to 14% between the Standard approach and SteeleGoy in 2019 and 8% between Standard and WgtBias.
+
+**Figure 4: Index Comparison, New Weighing (Focused View)**
+
+```{r, echo = FALSE, fig.width = 8, fig.height = 6.5, warning = FALSE, comment = FALSE, message = FALSE}
+
+  ggplot(res_$full$index,
+         aes(x = time, y = index, group = model, color = model)) +
+    geom_line() +
+    scale_x_continuous(breaks = seq(1, 253, by = 12), labels = 1999:2020) +
+    scale_color_manual(name = "Model Type", values = c('blue', 'red', 'purple', 'black')) +
+    ylab('Index Value\n') +
+    xlab('\nTime') +
+    ggtitle('Comparison of Standard, SteeleGoy and Weighted Bias Indexes') +
+    theme(legend.position = 'bottom',
+          plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(xlim = c(214,253), ylim = c(260, 370))
+
+```
+
+&nbsp;
+
+**Table 3: Annual Index Values**
+
+```{r echo = FALSE, warning = FALSE, comment = FALSE, message = FALSE}
+full_tbl <- res_$full$index %>%
+  dplyr::mutate(index = round(index, 1)) %>%
+  dplyr::rename(Date = time) %>%
+  dplyr::filter(Date %% 12 == 9) %>%
+  tidyr::spread(., key = 'model', value = 'index') %>%
+  dplyr::mutate(Date = paste0(1999:2019, '-09-01'))
+
+knitr::kable(full_tbl, format = 'latex')
+```
+
+#### Revisions
+
+Significant and often systematic revisions are one of the key complaints often leveled at repeat sales models (Clapham et al 2006; Deng and Quigley 2008). Revisions often occur due to differences between longer and shorter hold sales, the very issue that Steele and Goy were attempting to capture with their adjustment mechanisms.  Naturally, then, we might expect differences in revision figures for the different models estimated above.
+
+Figure 5 shows the standard deviation of the indexes at selected time periods -- from period 2 to period 237 -- for the four different model.  These revision figures were calculated by estimating the models across sequentially longer time frames and measuring the variation in the existing indexes values as more information was added.  The sequence of indexes begin on January 2002 (three years worth of initial data) and then re-estimated the model each month with the additional data up until October 2019.  The last year of the data is not shown in the graph as it has too few observations to create a meaningful trend.
+
+The results show an interesting dichotomy.  During the initial housing run up of 1999 to 2007, the SteeleGoy approach shows considerably higher revisions than the Standard or the WgtBias approach.  This ordering switches, and quite dramatically so, during the downturn of late 2007 to 2011. From that point on, all revisions rise, but the SteeleGoy approach is shows the least amount of revision.  Throughout all time periods, the weighted bias approach suffers from lower revisions than the standard approach.
+
+The likely reason for this switch is that the SteeleGoy approach 'punishes' any First sale regardless of the lengthe of the hold.  As original sales from the hot markets of 2003 to 2006 finally resold (at a profit) in 2014 and beyond, large adjustment biases were applied to these initial periods causing significant revisions to the original index values.  Similarly, all of the second sales in the 2013 to 2018 period outweigh (via bias adjustments) any true impacts from short hold sales during this time period, therefore counter-acting the natural revision tendencies during these periods.  Not surprisingly, the revision metrics for the hedonic model are very low, a trait consistent with previous findings (Clapham et al 2006).
+
+**Figure 5: Revision by Model**
+
+```{r, echo = FALSE, fig.width = 8, fig.height = 6.5, warning = FALSE, message = FALSE, comment = FALSE}
+
+  res_$revision <- res_$revision %>% dplyr::ungroup()
+
+  ggplot(res_$revision, aes(x = time, y = sd, group = model, color = model)) +
+    geom_point(alpha = .4) +
+    geom_smooth() +
+    xlab('') +
+    ylab('StDev of Revision\n') +
+    scale_x_continuous(breaks = seq(1, 253, by = 12), labels = 1999:2020) +
+    scale_color_manual(name = "Model Type", values = c('blue', 'red', 'purple', 'black')) +
+    ggtitle('Revision by Model Type') +
+    theme(legend.position = 'bottom',
+          plot.title = element_text(hjust = 0.5)) +
+  coord_cartesian(ylim = c(0,5))
+
+```
+
+### Smaller time periods
+
+The above analyses look at a twenty year window, one in which the market rose (1999 to 2008), fell (2008 to 2011), then rose again (2012 to 2018) and has now leveled off.  Steele and Goy's original paper suggested that the phenomena of 'opportune buyers' may be different in a down market versus an up market.  Their empirical analysis covered only an up market.  Below I employ the same analysis as above -- including the weighting approach i've developed -- to the three distinct market cycles above.
+
+* **Runup**: January 1999 to September 2007
+* **Crash**: October 2007 to December 2011
+* **Recovery**: January 2012 to October 2019 (*Includes recent cooling off period*)
+
+Within each period the repeat sales observations are re-matched so that a sale in 2001 and a resale in 2009, for example, are not considered repeat sales under this time division.
+
+Looking across the three time periods, we see a very similar relative ranking of indexes.  For the two runup periods -- left and right panels -- the Steele and Goy adjustment consistent track well below the standard repeat sales model, with the hedonic and weighted approach occupying a middle ground.  The relative order are similar in the down period -- middle panel -- however the volatility is considerably higher.  This increased volatility is likely due to two factors: 1) This is a much shorter time period than the two rising market subsets; and 2) In down markets, forced or other distressed sales are more common.  While the data preparation process removed properly documented non-arms length transactions, it is likely that other motivated sales may have slipped through the filters. Interestingly, the weighted approach tracks closer to the base model (less bias correction) in the down period than in the up periods.
+
+If we look just at the $\gamma$ values from each period we see large differences.  In the first rise period our hedonic model estimates a $\gamma$ of 0.064, in the middle period, .138, and in the last period 0.085. These findings may be counter-intuitive, as one may expect that second sales are likely to be at a discount to first sales in a down market, however, it is likely in this case that a number of sales occuring right at the start of the GFC -- after the Lehman Brothers collapse and the rash of foreclosures in the next year -- were purchased at huge discounts possibly accounting for the large difference here.
+
+**Figure 6: Index Comparison Split by Market Cycle**
+
+```{r, echo = FALSE, fig.width = 8, fig.height = 6.5}
+
+tp_df <- dplyr::bind_rows(res_$time1$index %>%
+                            dplyr::mutate(timeperiod = 'RunUp (Jan 99 to Sept 07)'),
+                         res_$time2$index %>%
+                           dplyr::mutate(timeperiod = 'Crash (Oct 07 to Jan 11'),
+                         res_$time3$index %>%
+                           dplyr::mutate(timeperiod = 'Recovery (Feb 11 to Sept 19)')) %>%
+  dplyr::mutate(timeperiod = forcats::fct_relevel(timeperiod,
+                                                  'RunUp (Jan 99 to Sept 07)',
+                                                  'Crash (Oct 07 to Jan 11'))
+
+
+ ggplot(tp_df, aes(x = time, y = index, group = model, color = model)) +
+    geom_line() +
+    #scale_x_continuous(breaks = seq(1, 253, by = 24), labels = seq(2000, 2020, by = 2)) +
+    scale_color_manual(name = "Model Type", values = c('blue', 'red', 'purple', 'black')) +
+    ylab('Index Value\n') +
+    xlab('\nTime') +
+    ggtitle('Comparison of Standard, SteeleGoy and Weighted Bias Indexes') +
+    facet_wrap(~timeperiod, ncol = 3, scales = 'free_x') +
+    theme(legend.position = 'bottom',
+          plot.title = element_text(hjust = 0.5))
+
+```
+
+### Gammas by length of study
+
+Another interpreation to the above comnparison of $\gamma$ values is that shorter time periods of analysis necessarily lend themselves to higher $\gamma$ values.  The rationale for this is that the shorter the time period the larger percentage of all transaction are made up of very short holds -- transaction which we've shown above are the most likely to see large differences between First and Second sales.
+
+To test if study time period length has any impact on $\gamma$ values, i've re-estimated this approach for every possible time period of 2 years or greater; limited to differences of whole year.  That means creating a time period for 1999 to 2002, then 1999 to 2003, ...2000 to 2003, ...2016 to 2019.  This approach creates 190 different two or more year time periods.
+
+Figure 7 shows these comparison, faceted by years of the study length.  The Y axis on each facet show the $\gamma$ value and the X-axis the time range of the study time period.  Naturally there are more three year combinations of time periods (upper left) than 20 year periods (lower right).
+
+There are two key takeaways from this analysis.  First, the highest $\gamma$s all exist in the shortest time periods, suggesting that as longer hold repeat sales enter the dataset, the premium for Second sales over first sales goes down markedly.  Second, $\gamma$ values are highest for repeat transaction that have a First sale at the nadir of the trough, around 2010, suggesting that opportune buyers where very prevalent during the heavy recession years.
+
+**Figure 7: Span vs Gamma**
+
+```{r, echo = FALSE, fig.width = 8, fig.height = 6.5, warning = FALSE, message = FALSE, comment = FALSE}
+
+  ggplot(res_$gammaspan %>% dplyr::filter(aggr == 'month'),
+         aes(x = year, y = gamma, group = exp, color = time)) +
+    scale_color_manual(values = c('black', 'green')) +
+    geom_point() +
+    geom_line(size = 1, color = 'gray30', alpha = .4) +
+    facet_wrap(~span, ncol = 3) +
+    theme(legend.position = 'none')
+
+```
+
+#### Period Aggregation
+
+In reflecting on their results, Steele and Goy posit the possibility that their findigs are, at least partially, influenced by period-wise aggrgation.  If the market is moving quickly and the distribution of expected hold period is uniform for all properties then first (second) sales are more likely to occur at the beginning (end) of the period, thus contributing to the $\gamma$ value measured.
+
+The above analyses looked at building indexes at a monthly level. If period-wise aggregation has an impact on the differences between First and Second sales then moving to a more coarse set of periods should increase the observed $\gamma$, given the strong market movements, both up and down, over this period. To test this, I re-estimate the analyis from above, except change to quarterly, not monthly indexes.
+
+Comparing the two sets of gamma estimates across span, we see very little difference. The only visible deviations is for the very short holds of 3 or 4 years, and even here the difference is very small, sligthly contradicting earlier finding by Englund et al 1999. While Steele and Goy were correct to consider this effect, it appears only relevant in very small time period studies or productions of house price indexes (Figure 8).
+
+**Figure 8: Monthly vs Quarterly Aggregation -- Gamma Values**
+
+```{r, echo = FALSE, fig.width = 8, fig.height = 6.5, warning = FALSE, message = FALSE, comment = FALSE}
+  g_df <- res_$gamma %>%
+  dplyr::mutate(difj = ifelse(aggr == 'month', dif + .05, dif - .05))
+
+  ggplot(g_df, aes(x = difj, y = gamma, group = aggr, color = aggr)) +
+    geom_point() +
+    scale_color_manual(name = "Period Aggregation", values = c('black', 'orange')) +
+    geom_smooth(data = g_df, aes(x = dif, y = gamma, group = aggr, color = aggr)) +
+    ylab('Gamma (Bias Adjustment)\n') +
+    xlab('\nNumber of Years in Data') +
+    ggtitle('Gamma relationship to Study Length') +
+    theme(legend.position = 'bottom',
+          plot.title = element_text(hjust = 0.5))
+
+```
+
+## Discussion
+
+Steele and Goy's original paper offered a novel exploration and correction of biases in the repeat sales pricing model.  Essentially, they reasoned that within a short hold, first sales are likely to be different from second sales due to information asymetry and buyer differences.  Their empirical data backed this up and they created a de-biasing process to re-estimate the house price index.
+
+The original analysis is about thirty years old and much has changed in home price purchasing in the past few decades -- most notably the significant increase in data available directly to consumers. This paper set out to replicate their original analysis.  My findings suggest that the difference between first and second sales not only still exists, but is larger in terms of magnitude than in their study.  The discount attached to first sales hold during both periods of increasing as well as decreasing market prices.  As a caveat to the generalizability of this work: The Seattle market has been somewhat atypical over the study period.  While the general up and down and back up again cycle mimics national trends, the up periods -- and the latest one in particular -- is much more pronounced due to the intense growth of tech industry jobs in the city (led by Amazon).  Further, Seattle is a highly land constrained city that is completely built out and bounded by water on the east and west and other municiapliites on the north and south.  As a result of all of this, development pressure has been very high over the recovery period and home flipping and short hold sales have been lucrative endeavors, up until mid 2018.  A look at a more moderate market is certainly warranted.
+
+Although Steele and Goy mention that the effect is likely to be more pronouned the short the hold -- and have a bit of exploratory data to back this up -- their ultimate bias adjusting mechanism does not factor in the lenght of the hold. In this paper, i've developed a weighted bias adjusting approach that takes into account the lenght of time between the first and second sale.  Essentially, this approach ends up only penalizing short hold sale-resale.  In doing so, the resulting index from this weighted adjustment mechanism both tracks more closely to a fully specified hedonic model-based index and provides more reasonable and consistent revisions.
+
+The first sale bias -- the gamma values -- found in this paper are higher than one might expect an opportune buyer to fully realize, without at least some improvement to the properties.  Steele and Goy's original conceptual hypothesis tries to disentangle improvement effects from opportune buyer effects.  I feel that, in lieu of a very detailed dataset of renovation, improvement and permits, it can be difficult at best to untangle these features.  While the data used in this study does have indicators of major remodeling -- and these observations where eliminated -- it does not consider smaller improvement made between sales.  However, for a properly constructed de-biasing approach the distinction between the two is not important so long as the proper bias is capture and corrected for.  In other words, if most very short hold -- say under 18 months -- undergo some improvement or change to quality then so long as the mean bias is reasonable and applied only to very short holds in the resulting index the appreciation (deprecation) represented by the index will be reasonable; the rationale for the bias correction, while important conceptually, doesn't impact the index.  This paper confirms Steele and Goy's finding that first sales are found in a different location of the error distribution than non-first sales and, additionally, it creates a more reasonable method for correcting for bias results from first sale price discounts.
+
+\pagebreak
+
+## Bibliography
+
+Bourassa, S., Cantoni, E., & Hoesli, M. (2013). Robust repeat sales indexes. *Real Estate Economics*, 41(3), 517-541.
+
+Butler, J. S., Chang, Y., & Cutts, A. C. (2005). Revision bias in repeat-sales home price indices. *Freddie Mac Working Paper*
+
+Can, A., & Megbolugbe, I. (1997). Spatial dependence and house price index construction. *The Journal of Real Estate Finance and Economics*, 14(1-2), 203-222.
+
+Case, B., Pollakowski, H. O., & Wachter, S. M. (1991). On choosing among house price index methodologies. *Real Estate Economics*, 19(3), 286-307.
+
+Case, B., Pollakowski, H. O., & Wachter, S. (1997). Frequency of transaction and house price modeling. *The Journal of Real Estate Finance and Economics*, 14(1), 173-187.
+
+Chau, K. W., Wong, S. K., & Yiu, C. Y. (2005). Adjusting for non-linear age effects in the repeat sales index. *The Journal of Real Estate Finance and Economics*, 31(2), 137-153.
+
+Clapham, E., Englund, P., Quigley, J. M., & Redfearn, C. L. (2006). Revisiting the past and settling the score: index revision for house price derivatives. *Real Estate Economics*, 34(2), 275-302.
+
+Clapp, J., & Giaccotto, C. (1992). Estimating price indices for residential property: a comparison of repeat sales and assessed value methods. *Journal of the American Statistical Association*, 87(418), 300-306.
+
+Clapp, J. M., & Giaccotto, C. (1999). Revisions in Repeat-Sales Price Indexes: Here Today, Gone Tomorrow? *Real Estate Economics*, 27(1), 79-104.
+
+Clapp, J. M., Giaccotto, C., & Tirtiroglu, D. (1991). Housing price indices based on all transactions compared to repeat subsamples. *Real Estate Economics*, 19(3), 270-285.
+
+Crone, T. M., & Voith, R. (1992). Estimating house price appreciation: a comparison of methods. *Journal of Housing Economics*, 2(4), 324-338.
+
+Deng, Y., & Quigley, J. M. (2008). Index revision, house price risk, and the market for house price derivatives. *The Journal of Real Estate Finance and Economics*, 37(3), 191-209.
+
+Englund, P., Quigley, J. M., & Redfearn, C. L. (1999). The choice of methodology for computing housing price indexes: comparisons of temporal aggregation and sample definition. *The Journal of Real Estate Finance and Economics*, 19(2), 91-112.
+
+Gatzlaff, D. H., & Haurin, D. R. (1997). Sample Selection Bias and Repeat-Sales Index Estimates. *The Journal of Real Estate Finance and Economics*, 14, 33-50.
+
+Guntermann, K. L., Liu, C., & Nowak, A. D. (2016). Price Indexes for Short Horizons, Thin Markets or Smaller Cities. *Journal of Real Estate Research*, 38(1), 93-127.
+
+Meese, R. A., & Wallace, N. (1991). Nonparametric estimation of dynamic hedonic price models and the construction of residential housing price indexes. *Journal of the American Real Estate & Urban Economics Association*, 19(3), 308-332.
+
+Meese, R. A., & Wallace, N. (1997). The construction of residential housing price indices: a comparison of repeat-sales, hedonic-regression, and hybrid approaches. *The Journal of Real Estate Finance and Economics*, 14(1), 51-73.
+
+Nagaraja, C., Brown, L., & Wachter, S. (2014). Repeat sales house price index methodology. *Journal of Real Estate Literature*, 22(1), 23-46.
+
+Steele, M., & Goy, R. (1997). Short holds, the distributions of first and second sales, and bias in the repeat-sales price index. *The Journal of Real Estate Finance and Economics*, 14(1), 133-154.
+
+<!-- </div> -->
