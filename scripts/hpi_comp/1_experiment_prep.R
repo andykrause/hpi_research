@@ -21,8 +21,8 @@
   ind_var <- c('use', 'grade', 'sqft_lot', 'age', 'sqft', 'beds', 'baths', 
                'latitude', 'longitude', 'submarket')
   train_per <- .2
-  ntrees <- 200
-  sim_per <- .05
+  ntrees <- 100
+  sim_per <- .02
   
   # For each desired time range, build data
   for (tr in time_ranges){
@@ -33,10 +33,10 @@
     exp_obj <- list(
       name = paste0('exp_', tr),
       time = tr,
-      start_date = as.Date(paste0(2022 - tr, '-01-01')),
+      start_date = as.Date(paste0(2024 - tr, '-01-01')),
       sms = sms,
       periodicity = periodicity,
-      train_period = round(tr * train_per, 0),
+      train_period = round(tr * 12 * train_per, 0),
       ind_var = ind_var,
       sim_per = .05,
       ntrees = ntrees
@@ -72,7 +72,7 @@
                     periodicity = exp_obj$periodicity)
     
      # Write Data
-    saveRDS(exp_, file = file.path(getwd(), 'data', exp_$name, paste0('exp_obj.RDS')))
+    saveRDS(exp_obj, file = file.path(getwd(), 'data', exp_obj$name, paste0('exp_obj.RDS')))
     
   }
 

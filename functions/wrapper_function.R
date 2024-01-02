@@ -26,8 +26,7 @@ expWrapper <- function(exp_obj,
                        estimator = estimator,
                        log_dep = log_dep,
                        trim_model = trim_model,
-                       max_period = max_period,
-                       partition = partition)
+                       max_period = max_period)
   }
   if (exp_obj$model == 'hed'){
     hpi_obj <- hedIndex(trans_df = exp_obj$hed_df,
@@ -49,7 +48,10 @@ expWrapper <- function(exp_obj,
                        ntrees = 200,
                        sim_per = exp_obj$sim_per,
                        max_period = max(exp_obj$hed_df$trans_period),
-                       smooth = TRUE)
+                       smooth = TRUE,
+                       min.bucket = exp_obj$min_bucket,
+                       always.split.variables = 
+                         exp_obj$always_split_variables)
   }
   
   # Extract into a simple data.frame()
@@ -221,7 +223,7 @@ calculateRelAccr <- function(series_obj,
 dataFilter <- function(exp_obj,
                        partition){
   
-  exp_obj$hed_df$partition_field <- exp_obj$hed_df[[exp_obj$sms[1]]]
+  exp_obj$hed_df$partition_field <- exp_obj$hed_df[[exp_obj$partition_field[1]]]
   
   ss_ids <- exp_obj$hed_df %>%
     dplyr::filter(partition_field == partition) %>%

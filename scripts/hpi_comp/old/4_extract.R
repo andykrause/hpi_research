@@ -11,12 +11,58 @@
 
 ### Load and extract -------------------------------------------------------------------------------
 
+ exps <- c('exp_5', 'exp_10', 'exp_20')
+ #exps <- 'exp_10'
  ## Get file names
+ 
+  index_ <- list()
+ 
+  lf <- list() 
+  for (i in exps){
+    ff <- list.files(file.path(getwd(), 'data', i))
+    ff <- ff[grepl('results', ff)]
+    for (f in ff){
+      x_ <- readRDS(file.path(getwd(), 'data', i, f))
+      if (grepl('sub', f)){
+        x_$index <- purrr::map(.x = x_,
+                               .f = function(x){
+                                 x$index
+                               }) %>%
+          dplyr::bind_rows()
+      }
+      index_[[length(index_)+1]] <- x_$index     
+    }
+  }
+
+  index_df <- index_ %>% dplyr::bind_rows()
+
+  ggplot(index_df %>%
+           dplyr::filter(exp == 'exp_5' & 
+                           partition == 'all'),
+         aes(x=period, y = value, group = model, color = model)) + 
+    geom_line() + 
+    ggtitle('2019 thru 2023 Indexes')
   
-  lf <- list.files(file.path(getwd(), 'data'))
-  lf <- lf[grepl('county', lf)]
-
-
+  ggplot(index_df %>%
+           dplyr::filter(exp == 'exp_10' & 
+                           partition == 'all'),
+         aes(x=period, y = value, group = model, color = model)) + 
+    geom_line() + 
+    ggtitle('2014 thru 2023 Indexes')
+  
+  
+  
+  
+  ggplot(index_df %>%
+           dplyr::filter(exp == 'exp_5' & 
+                           partition == 'C'),
+         aes(x=period, y = value, group = model, color = model)) + 
+    geom_line()
+  
+  
+  
+  
+  
  ## Set up capture lists
   
   index_ <- list()
