@@ -6,6 +6,7 @@ expWrapper <- function(exp_obj,
                        log_dep = TRUE,
                        trim_model = TRUE,
                        vol_window = 3,
+                       index_only = FALSE,
                        ...){
   
   ## Filter data if a partition of the whole
@@ -45,13 +46,13 @@ expWrapper <- function(exp_obj,
                        dep_var = 'price',
                        ind_var = exp_obj$ind_var,
                        trim_model = TRUE,
-                       ntrees = 200,
-                       sim_per = exp_obj$sim_per,
+                       ntrees = exp_obj$rf_par$ntrees,
+                       sim_per = exp_obj$rf_par$sim_per,
                        max_period = max(exp_obj$hed_df$trans_period),
                        smooth = TRUE,
-                       min.bucket = exp_obj$min_bucket,
+                       min.bucket = exp_obj$rf_par$min_bucket,
                        always.split.variables = 
-                         exp_obj$always_split_variables)
+                         exp_obj$rf_par$always_split_variables)
   }
   
   # Extract into a simple data.frame()
@@ -64,6 +65,8 @@ expWrapper <- function(exp_obj,
                          exp = exp_obj$name,
                          partition = partition)
 
+  if(index_only) return(index_df)
+  
   if(verbose) cat('..Calculating Index Volatility\n')
   hpi_obj <- calcVolatility(index = hpi_obj,
                             window = vol_window,

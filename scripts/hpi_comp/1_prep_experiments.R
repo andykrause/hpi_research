@@ -1,6 +1,9 @@
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
-#. Set up experiment hyper parameters and data sets
+#  Set up experiment hyper parameters and data sets
+#
+#.  -- Script that creates an experiment input object for each scenario
+#.  -- it also creates a directory for saving results for each experiment scenario
 #
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -13,16 +16,26 @@
 
 ### Create Standard Experiments (Those with different time coverage) -------------------------------  
   
-  ## Set Experiment guidelines
+  ## Set Experiment parameters
 
+  # For all models
+  terminal_year <- 2024
   time_ranges <- c(5, 10, 20)
   sms <- c('county', 'submarket')
   periodicity <- 'monthly'
+  train_per <- .2
+  
+  # For HED/RF
   ind_var <- c('use', 'grade', 'sqft_lot', 'age', 'sqft', 'beds', 'baths', 
                'latitude', 'longitude', 'submarket')
-  train_per <- .2
-  ntrees <- 100
-  sim_per <- .02
+  
+  # For RF Only
+  rf_par <- list(
+    ntrees = 200,
+    sim_per = .10,
+    min_bucket = 5,
+    always_split_variables = 'trans_period'
+  )
   
   # For each desired time range, build data
   for (tr in time_ranges){
@@ -33,13 +46,12 @@
     exp_obj <- list(
       name = paste0('exp_', tr),
       time = tr,
-      start_date = as.Date(paste0(2024 - tr, '-01-01')),
+      start_date = as.Date(paste0(terminal_year - tr, '-01-01')),
       sms = sms,
       periodicity = periodicity,
-      train_period = round(tr * 12 * train_per, 0),
+      train_period = round(tr * ifelse(periodicity == 'monthly', 12, 52) * train_per, 0),
       ind_var = ind_var,
-      sim_per = .05,
-      ntrees = ntrees
+      rf_par = rf_par
     )
     
     # Check for directory, create if not present
@@ -49,7 +61,7 @@
     
     ## Create Data
     
-    # Repeat Trans
+    # Repeat Transaction Data
     exp_obj$rt_df <- 
       rtCreateTrans(trans_df = sales_df %>%
                        dplyr::filter(sale_date >= exp_obj$start_date),
@@ -61,7 +73,7 @@
                     seq_only = TRUE,
                     min_period_dist = exp_obj$train_period)
     
-    # Hedonic
+    # Hedonic Data
     exp_obj$hed_df <- 
       hedCreateTrans(trans_df = sales_df %>%
                                dplyr::filter(sale_date >= exp_obj$start_date),
@@ -78,6 +90,6 @@
 
 ### Any Custom experiments ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
-  # To Come
+  ## To Come
   
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

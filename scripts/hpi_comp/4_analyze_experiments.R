@@ -26,7 +26,11 @@
     #facet_wrap(~exp) + 
     geom_line()
   
-
+  ggplot(index_df %>%
+           ...            dplyr::filter(partition == 'all' & exp == 'exp_5'),
+         ...          aes(x = period, y = value, group = model, color = model)) + 
+    ...     #facet_wrap(~exp) + 
+  ...     geom_line()
   
   
 ### Evaluate Accuracy
@@ -51,18 +55,7 @@
     dplyr::summarise(mean = mean(mean),
                      abs_mean = mean(abs_mean))
   
-  ## Over time
-  res_$revision %>%
-    dplyr::filter(partition == 'all' & exp == 'exp_5') %>%
-    dplyr::group_by(exp, model, time) %>%
-    dplyr::summarise(mean = mean(mean),
-                     abs_mean = mean(abs_mean)) ->
-    res5_df
-  
-  ggplot(res5_df,
-         aes(x = time, y = mean, group = model, color = model)) + 
-    geom_point()
-  
+ 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
