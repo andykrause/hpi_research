@@ -40,43 +40,53 @@
       
       # For any divided by submarket, must do extra flattening
       if (!grepl('all', res)){
+        
+        part_type <- ifelse(grepl('sub', res), 'submarkets', 'areas')
+        
         x_$index <- purrr::map(.x = x_,
                                .f = function(x){
                                  x$index
                                }) %>%
-          dplyr::bind_rows()
+          dplyr::bind_rows() %>%
+          dplyr::mutate(partition_type = part_type)
         x_$vol <- purrr::map(.x = x_,
                                .f = function(x){
                                  x$vol
                                }) %>%
-          dplyr::bind_rows()
+          dplyr::bind_rows() %>%
+          dplyr::mutate(partition_type = part_type)
         x_$series <- purrr::map(.x = x_,
                              .f = function(x){
                                x$series
                              }) %>%
-          dplyr::bind_rows()
+          dplyr::bind_rows() %>%
+          dplyr::mutate(partition_type = part_type)
         x_$revision <- purrr::map(.x = x_,
                                 .f = function(x){
                                   x$revision
                                 }) %>%
-          dplyr::bind_rows()
+          dplyr::bind_rows() %>%
+          dplyr::mutate(partition_type = part_type)
         x_$volS <- purrr::map(.x = x_,
                                   .f = function(x){
                                     x$volS
                                   }) %>%
-          dplyr::bind_rows()
+          dplyr::bind_rows() %>%
+          dplyr::mutate(partition_type = part_type)
         
         x_$absacc <- purrr::map(.x = x_,
                               .f = function(x){
                                 x$absacc
                               }) %>%
-          dplyr::bind_rows()
+          dplyr::bind_rows() %>%
+          dplyr::mutate(partition_type = part_type)
         
         x_$relacc <- purrr::map(.x = x_,
                               .f = function(x){
                                 x$relacc
                               }) %>%
-          dplyr::bind_rows()
+          dplyr::bind_rows() %>%
+          dplyr::mutate(partition_type = part_type)
       }
       
       # Add to correct capture list
@@ -95,14 +105,29 @@
 
 ### Flatten all in to data.frames ------------------------------------------------------------------ 
   
-  index_df <- index_ %>% dplyr::bind_rows()
-  indexvol_df <- indexvol_ %>% dplyr::bind_rows()
+  index_df <- index_ %>%
+    purrr::map(., .f = function(x) x %>% mutate(partition = as.character(partition))) %>%
+    dplyr::bind_rows()
   
-  series_df <- series_ %>% dplyr::bind_rows()
-  revision_df <- revision_ %>% dplyr::bind_rows()
-  seriesvol_df <- seriesvol_ %>% dplyr::bind_rows()
-  absacc_df <- absacc_ %>% dplyr::bind_rows()
-  relacc_df <- relacc_ %>% dplyr::bind_rows()
+  indexvol_df <- indexvol_ %>% 
+    purrr::map(., .f = function(x) x %>% mutate(partition = as.character(partition))) %>%
+    dplyr::bind_rows()
+  
+  series_df <- series_ %>%
+    purrr::map(., .f = function(x) x %>% mutate(partition = as.character(partition))) %>%
+    dplyr::bind_rows()
+  revision_df <- revision_ %>%
+    purrr::map(., .f = function(x) x %>% mutate(partition = as.character(partition))) %>%
+    dplyr::bind_rows()
+  seriesvol_df <- seriesvol_ %>%
+    purrr::map(., .f = function(x) x %>% mutate(partition = as.character(partition))) %>%
+    dplyr::bind_rows()
+  absacc_df <- absacc_ %>%
+    purrr::map(., .f = function(x) x %>% mutate(partition = as.character(partition))) %>%
+    dplyr::bind_rows()
+  relacc_df <- relacc_ %>%
+    purrr::map(., .f = function(x) x %>% mutate(partition = as.character(partition))) %>%
+    dplyr::bind_rows()
   
  ## Save combined results  
   saveRDS(list(index = index_df,

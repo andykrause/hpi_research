@@ -49,7 +49,7 @@ expWrapper <- function(exp_obj,
                        ntrees = exp_obj$rf_par$ntrees,
                        sim_per = exp_obj$rf_par$sim_per,
                        max_period = max(exp_obj$hed_df$trans_period),
-                       smooth = TRUE,
+                       smooth = FALSE,
                        min.bucket = exp_obj$rf_par$min_bucket,
                        always.split.variables = 
                          exp_obj$rf_par$always_split_variables)
@@ -171,7 +171,8 @@ expWrapper <- function(exp_obj,
 
 
 getHedFitAccuracy <- function(index_obj,
-                              exp_obj){
+                              exp_obj,
+                              model_class = 'rf'){
   
   max_period <- length(index_obj$index$period)
   
@@ -192,18 +193,30 @@ getHedFitAccuracy <- function(index_obj,
   base_eq <- as.formula(paste('log(price) ~ ', paste(exp_obj$ind_var, collapse= '+')))
   adj_eq <- as.formula(paste('log(adj_price) ~ ', paste(exp_obj$ind_var, collapse= '+')))
   
-  base_lm <- lm(base_eq, train_df)   
-  adj_lm <- lm(adj_eq, train_df)  
+  if (model_class == 'lm'){
+    base_lm <- lm(base_eq, train_df)   
+    adj_lm <- lm(adj_eq, train_df)  
+    base_pred <- predict(base_lm, val_df)
+    adj_pred <- predict(adj_lm, val_df)
+  }
+  
+  if (model_class == 'rf'){
+    base_rf <- ranger::ranger(formula = base_eq, data = train_df)
+    adj_rf <- ranger::ranger(formula = adj_eq, data = train_df)
+    base_pred <- predict(base_rf, val_df)$predictions
+    adj_pred <- predict(adj_rf, val_df)$predictions
+    
+  }
   
   base_val <- data.frame(trans_id = val_df$trans_id,
                          trans_period = val_df$trans_period,
-                         prediction = exp(predict(base_lm, val_df)),
+                         prediction = exp(base_pred),
                          price = val_df$price,
                          type = 'base') %>%
     dplyr::mutate(error = log(prediction) - log(price))
   adj_val <- data.frame(trans_id = val_df$trans_id,
                         trans_period = val_df$trans_period,
-                        prediction = exp(predict(adj_lm, val_df)),
+                        prediction = exp(adj_pred),
                         price = val_df$price,
                         type = 'adj') %>%
     dplyr::mutate(error = log(prediction) - log(price))
@@ -280,7 +293,13 @@ unwrapPartitions <- function(part_obj){
        relaccc = relacc)
 }
 
-  
+periodOverPeriod <- function(index_obj){
+  index_obj$index$PoP <- c(0, (index_obj$index$value[-1] / 
+                                 index_obj$index$value[-length(index_obj$index$value)]) -1)
+  index_obj
+}  
+
+
   
   
   

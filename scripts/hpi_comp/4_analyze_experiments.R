@@ -26,6 +26,37 @@
     #facet_wrap(~exp) + 
     geom_line()
   
+  ## All County 5
+  ggplot(index_df %>%
+           dplyr::filter(partition == 'all' & exp == 'exp_10'),
+         aes(x = period, y = value, group = model, color = model)) + 
+    #facet_wrap(~exp) + 
+    geom_line()
+   
+  
+  exp_obj$hed_df %>%
+    dplyr::group_by(trans_period) %>%
+    dplyr::summarize(med = median(price)) -> ll
+  ll$ind <- 100
+  ll$ind[2:60] = 100*(ll$med[2:60] / ll$med[1])
+  ll$period <- ll$trans_period
+  ll$model = 'med'
+  
+  ggplot(index_df %>%
+           dplyr::filter(partition == 'all' & exp == 'exp_5'),
+         aes(x = period, y = value, group = model, color = model)) + 
+    #facet_wrap(~exp) + 
+    geom_line() + 
+    geom_line(data = ll, aes(x = period, y = ind), color = 'black')
+  
+  
+  
+  
+  
+  
+  
+  
+  
   ggplot(index_df %>%
            ...            dplyr::filter(partition == 'all' & exp == 'exp_5'),
          ...          aes(x = period, y = value, group = model, color = model)) + 
@@ -40,6 +71,34 @@
     dplyr::group_by(exp, model, type) %>%
     dplyr::summarize(mdpe = median(error),
                      mdape = median(abs(error)))
+  
+  res_$relacc %>%
+    dplyr::filter(partition_type == 'submarkets') %>%
+    dplyr::group_by(exp, model, type) %>%
+    dplyr::summarize(mdpe = median(error),
+                     mdape = median(abs(error)))
+  
+  res_$relacc %>%
+    dplyr::filter(partition_type == 'areas') %>%
+    dplyr::group_by(exp, model, type) %>%
+    dplyr::summarize(mdpe = median(error),
+                     mdape = median(abs(error)))
+  
+  
+  
+  
+  res_$relacc %>%
+    dplyr::filter(exp == 'exp_5') %>%
+    dplyr::group_by(partition_type, model, type) %>%
+    dplyr::summarize(mdpe = median(error),
+                     mdape = median(abs(error)))
+  
+  res_$absacc %>%
+    dplyr::filter(exp == 'exp_5') %>%
+    dplyr::group_by(partition_type, model) %>%
+    dplyr::summarize(mdpe = median(error),
+                     mdape = median(abs(error)))
+  
   
   res_$absacc %>%
     dplyr::filter(partition == 'all') %>%

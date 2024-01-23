@@ -60,6 +60,7 @@
     results_obj <- purrr::map(.x = partitions,
                               .f = expWrapper,
                               exp_obj = exp_,
+                              estimator = 'base', 
                               index_only = FALSE)
     
     cat('.Saving Results\n')
@@ -68,7 +69,47 @@
                              paste0(exp_$model, '_', exp_$partition_field, '_results.RDS')))
   }
   
-
+#### By Area -----------------------------------------
+  
+  area_df <- exp_$hed_df %>%
+    dplyr::group_by(area) %>%
+    dplyr::summarize(area_count = dplyr::n()) %>%
+    dplyr::mutate(area_label = ifelse(area_count > 700, as.numeric(area), 0))
+  
+  exp_$hed_df <- exp_$hed_df %>%
+    dplyr::left_join(., area_df, by = 'area')
+  
+  # exp_$rt_df <- exp_$rt_df %>%
+  #   dplyr::left_join(., exp_$hed_df %>%
+  #                      dplyr::select(trans_id, area_label), 
+  #                    by = c('trans_id1' = 'trans_id'))
+  # 
+  # 
+  exp_$partition_field <- 'area_label'
+  partitions <- area_df$area_label
+  
+  # Update ind var to not use submarket
+  exp_$ind_var = c('use', 'grade', 'sqft_lot', 'age', 'sqft', 'beds', 'baths',
+                   'latitude', 'longitude')
+  
+  ## Loop through models
+  for(mod in models){
+    
+    exp_$model <- mod
+    cat('------', mod, '---', exp_$time, '---', exp_$partition_field, '-----------------\n')
+    results_obj <- purrr::map(.x = partitions,
+                              .f = expWrapper,
+                              exp_obj = exp_,
+                              estimator = 'base',
+                              index_only = FALSE) %>%
+      suppressWarnings()
+    
+    cat('.Saving Results\n')
+    saveRDS(results_obj, 
+            file = file.path(getwd(), 'data', exp_$name, 
+                             paste0(exp_$model, '_', exp_$partition_field, '_results.RDS')))
+  }
+  
 ### 10 Year Time Frame ------------------------------------------------------------------------------  
   
   # Set Experiment Setup to use

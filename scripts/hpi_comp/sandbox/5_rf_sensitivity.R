@@ -40,16 +40,42 @@
   ind_var7 <- c('use', 'grade', 'sqft', 'beds', 'baths', 'sqft_lot', 'age', 'submarket')
   ind_var8 <- c('use', 'grade', 'sqft', 'beds', 'baths', 'sqft_lot', 'age', 'submarket',
                 'longitude', 'latitude')
+  ind_var9 <- c('use', 'grade', 'sqft', 'beds', 'baths', 'sqft_lot', 'age', 'submarket',
+                'area', 'longitude', 'latitude')
+  
   
   ind_var_ <- list(ind_var1, ind_var2, ind_var3, ind_var4, ind_var5,
-                   ind_var6, ind_var7, ind_var8)
-  results_ <- list()
+                   ind_var6, ind_var7, ind_var8, ind_var9)
+  results_ <- imp_ <- list()
   
   for (i in 1:length(ind_var_)){
     exp_$ind_var <- ind_var_[[i]]
   
     cat('------ Independent Variable Set: ', i, '------\n')
-  
+    exp_obj <- exp_
+    hpi_obj <- rfIndex(trans_df = exp_obj$hed_df,
+                       estimator = 'pdp',
+                       log_dep = TRUE,
+                       dep_var = 'price',
+                       ind_var = exp_obj$ind_var,
+                       trim_model = TRUE,
+                       ntrees = exp_obj$rf_par$ntrees,
+                       sim_per = exp_obj$rf_par$sim_per,
+                       max_period = max(exp_obj$hed_df$trans_period),
+                       smooth = FALSE,
+                       min.bucket = exp_obj$rf_par$min_bucket,
+                       always.split.variables = 
+                         exp_obj$rf_par$always_split_variables,
+                       importance = 'permutation')
+    imp_v <- ranger::importance(hpi_obj$model$model_obj)
+    imp_df <- data.frame(feature = names(imp_v),
+                         imp = imp_v) %>% 
+      dplyr::mutate(model = paste0('rf_', i),
+                    fs = i,
+                    asv = exp_$always_split_variables)
+    
+    imp_[[i]] <- imp_df
+    
     results_[[i]] <- expWrapper(exp_obj = exp_,
                                 partition = 'all', 
                                 index_only = TRUE) %>% 
@@ -61,9 +87,42 @@
   index_df <- results_ %>%
     dplyr::bind_rows()
   
+  imp_df <- imp_ %>%
+    dplyr::bind_rows()
+  
+
+## Test RF model with ony using sales from Spike period
+  
+  idx <- which(exp_obj$hed_df$trans_period > 36 & 
+                 exp_obj$hed_df$trans_period < 44)
+  
+  hpi_obj <- rfIndex(trans_df = exp_obj$hed_df,
+                     estimator = 'pdp',
+                     log_dep = TRUE,
+                     dep_var = 'price',
+                     ind_var = exp_obj$ind_var,
+                     trim_model = TRUE,
+                     ntrees = exp_obj$rf_par$ntrees,
+                     sim_ids = idx,
+                     max_period = max(exp_obj$hed_df$trans_period),
+                     smooth = FALSE,
+                     min.bucket = exp_obj$rf_par$min_bucket,
+                     always.split.variables = 
+                       exp_obj$rf_par$always_split_variables,
+                     importance = 'permutation')
+  
+  g <- hpi_obj$index
+  gg <- data.frame(period = g$period,
+                   value = as.numeric(g$value),
+                   model = 'xx')
+
+  
+    
+  
   ggplot(index_df,
          aes(x = period, y = value, color = model, group=model)) + 
-    geom_line()
+    geom_line() + 
+    geom_line(data = gg, aes(x=period, y = value), color = 'black', lwd = 3)
   
 ### Remove forced splits
   
