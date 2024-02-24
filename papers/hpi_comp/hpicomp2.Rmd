@@ -85,6 +85,16 @@ Continuum
 
 ## Lit Review
 
+   * Taxonomy
+   * Comparisons / Evaluations
+          * Are they different? (Samples -- RT vs Uni...H&T)
+          * Volatility
+          * Robustness (Hill and Trojanek 2022)
+          * Revisions (Silverstein 2014; VanDeMinner 2020)
+          * Accuracy
+            * Abs (Nagaraja)
+            * Rel (new)
+
 ## Methods Tests
 
 ## Eval Methods

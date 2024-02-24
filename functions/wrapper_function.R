@@ -225,12 +225,14 @@ getHedFitAccuracy <- function(index_obj,
 }    
 
 calculateRelAccr <- function(series_obj,
-                             exp_obj){
+                             exp_obj,
+                             ...){
   
   hedaccr_ <- list()
   for (ti in 1:(length(series_obj$hpis)-1)) {
     hedaccr_[[ti]] <- getHedFitAccuracy(series_obj$hpis[[ti]],
-                                        exp_obj)
+                                        exp_obj,
+                                        ...)
   }
   series_obj$rel_accuracy <- dplyr::bind_rows(hedaccr_)
   series_obj 
@@ -298,6 +300,231 @@ periodOverPeriod <- function(index_obj){
                                  index_obj$index$value[-length(index_obj$index$value)]) -1)
   index_obj
 }  
+
+indexes2df <- function(index_list,
+                       time_length){
+  
+  purrr::map(.x = index_list,
+             .f = function(x){
+               x = periodOverPeriod(x)
+               data.frame(approach = x$model$approach,
+                          class = x$model$class,
+                          time = time_length, 
+                          time_period = x$index$period,
+                          month = x$index$name,
+                          index = as.numeric(x$index$value),
+                          MoM = round(x$index$PoP, 3),
+                          seasonal = x$stl$seasonal,
+                          trend = x$stl$trend,
+                          remainder = x$stl$remainder,
+                          volatility = x$stl$volatility)
+             }) %>%
+    dplyr::bind_rows(.)
+}
+
+
+crossIndexWrapper <- function(expx_, 
+                              sample_name,
+                              vol_window = 3,
+                              ...){
+  
+  # Pure Median
+  med_index <- aggIndex(trans_df = expx_$hed_df,
+                        estimator = 'median') %>%
+  ind2stl(.)
+  med_index$model$approach <- 'median_price'
+  med_index$model$class <- 'agg'
+  
+  # PPSF Index 
+  ppsf_index <- aggIndex(trans_df = expx_$hed_df,
+                         estimator = 'median',
+                         price_field = 'ppsf') %>%
+    ind2stl(.)
+  ppsf_index$model$approach <- 'median_ppsf'
+  ppsf_index$model$class <- 'agg'
+  
+  # RT Index -----
+  rt_index <- rtIndex(trans_df = expx_$rt_df,
+                      estimator = 'robust',
+                      log_dep = TRUE,
+                      max_period = max(expx_$rt_df$period_2)) %>%
+    ind2stl(.)
+  rt_index$model$class <- 'tme'
+  
+  hed_index <- hedIndex(trans_df = expx_$hed_df,
+                        estimator = 'robust',
+                        log_dep = TRUE,
+                        dep_var = 'price',
+                        ind_var = expx_$ind_var,
+                        trim_model = TRUE,
+                        max_period = max(expx_$hed_df$trans_period),
+                        smooth = FALSE) %>%
+    ind2stl(.)
+  hed_index$model$class <- 'tme'
+
+  hedimp_index <- hedIndex(trans_df = expx_$hed_df,
+                           estimator = 'impute',
+                           log_dep = TRUE,
+                           dep_var = 'price',
+                           ind_var = expx_$ind_var,
+                           trim_model = TRUE,
+                           max_period = max(expx_$hed_df$trans_period),
+                           smooth = FALSE,
+                           sim_df = expx_$hed_df %>%
+                             dplyr::filter(submarket != 'H')) %>%
+    ind2stl(.)
+  hedimp_index$model$approach <- 'hedimp'
+  hedimp_index$model$class <- 'imp'
+  
+  ## RF Index -----
+  rfimp_index <- rfIndex(trans_df = expx_$hed_df,
+                         estimator = 'chain',
+                         log_dep = TRUE,
+                         dep_var = 'price',
+                         ind_var = expx_$ind_var,
+                         trim_model = TRUE,
+                         ntrees = expx_$rf_par$ntrees,
+                         sim_per = expx_$rf_par$sim_per,
+                         max_period = max(expx_$hed_df$trans_period),
+                         smooth = FALSE,
+                         min.bucket = expx_$rf_par$min_bucket,
+                         always.split.variables = 
+                           expx_$rf_par$always_split_variables,
+                         sim_df = uni_df)%>%
+    ind2stl(.)
+  rfimp_index$model$approach <- 'rf_imp'
+  rfimp_index$model$class <- 'imp'
+  
+  indexes_ <- list(med_index,
+                   ppsf_index,
+                   rt_index,
+                   hed_index,
+                   hedimp_index,
+                   rfimp_index)
+  
+  index_df <- indexes2df(index_list = indexes_,
+                         time_length = 10)
+  index_df$sample <- sample_name
+  
+  return(index_df)
+  
+}  
+
+
+ind2stl <- function(index_obj,
+                    window = 3,
+                    in_place = TRUE){
+  kt <- length(index_obj$index$value)
+  
+  ind_ts <- ts(index_obj$index$value, 
+               frequency = 12)
+  ind_stl <- stl(ind_ts, 
+                 s.window = 'periodic')
+  
+  rem <- ind_stl$time.series[, 3]
+  
+  ## Calculate mean rolling sd
+  iv <- zoo::rollapply(rem, window, stats::sd)
+  
+  data.frame(period = 1:(length(ind_stl$time.series)/3),
+             seasonal = ind_stl$time.series[,1],
+             trend = ind_stl$time.series[,2],
+             remainder = ind_stl$time.series[,3],
+             volatility = c(0, iv, 0)) ->
+    stl_df
+  
+  if(in_place){
+    index_obj$stl <- stl_df
+    return(index_obj)
+  } else {
+    return(stl_df)
+  }
+  
+}
+
+aggWrapper <- function(exp_obj,
+                       partition,
+                       verbose = TRUE,
+                       estimator = 'median',
+                       price_field = 'price',
+                       trim_model = TRUE,
+                       vol_window = 3,
+                       ...){
+  
+  if (partition != 'all'){
+    exp_obj <- dataFilter(exp_obj, partition)
+    cat('Analyzing ', exp_obj$sms[1], ': ', partition, '\n\n')
+  }
+  
+  mp<- max(exp_obj$hed_df$trans_period)
+  
+  
+  if(verbose) cat('..Calculating Index.\n')
+  agg_hpi <- aggIndex(trans_df = exp_obj$hed_df,
+                      estimator = estimator,
+                      trim_model = TRUE,
+                      price_field = price_field,
+                      #max_period = mp,
+                      smooth = TRUE) %>%
+    ind2stl(.)
+  
+  gc()
+  agg_hpi$model$approach <- 'agg'
+  agg_hpi$model$class <- 'agg'
+  
+  
+  if(verbose) cat('..Calculating Index Series.\n')
+  agg_series <- createSeries(hpi_obj = agg_hpi,
+                             train_period = exp_obj$train_period,
+                             #max_period = mp,
+                             smooth = TRUE,
+                             price_field = price_field)
+  
+  if(verbose) cat('..Calculating Index Revision.\n')
+  agg_series <- calcRevision(series_obj = agg_series,
+                             in_place = TRUE,
+                             in_place_name = 'revision')
+  
+  if(verbose) cat('..Calculating Series Predictive Accuracy.\n')
+  agg_series <- calcSeriesAccuracy(series_obj = agg_series,
+                                   test_method = 'forecast',
+                                   test_type = 'rt',
+                                   pred_df = exp_obj$rt_df,
+                                   smooth = FALSE,
+                                   in_place = TRUE,
+                                   in_place_name = 'pr_accuracy')
+  
+  if(verbose) cat('..Calculating Series Relative Predictive Accuracy.\n')
+   agg_hedaccr <- list()
+  
+  for (ti in 1:(length(agg_series$hpis)-1)) {
+    agg_hedaccr[[ti]] <- getHedFitAccuracy(agg_series$hpis[[ti]],
+                                           exp_obj,
+                                           model_class = 'lm')
+  }
+  agg_series$hed_praccr <- dplyr::bind_rows(agg_hedaccr)
+  
+  if(verbose) cat('..Cleaning Up.\n')
+  agg_hpi$data <- NULL
+  agg_hpi$model <- NULL
+  gc()
+  
+  agg_series$data <- NULL
+  agg_series$hpis <- NULL
+  gc()
+  
+  return(
+    list(
+      index = agg_hpi,
+      series = agg_series
+    )
+  )
+}
+
+
+
+
+
 
 
   

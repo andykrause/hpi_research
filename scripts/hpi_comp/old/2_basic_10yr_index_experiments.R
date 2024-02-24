@@ -38,14 +38,14 @@
   exp_$hed_df <- exp_$hed_df %>%
     dplyr::mutate(ppsf = round(price / sqft, 0))
   
-  ## Get Aggregate index
+  #### Agg Index -----
   agg_index <- aggIndex(trans_df = exp_$hed_df,
                   estimator = 'median') %>%
     calcVolatility(.,
                    window = vol_window,
                    in_place = TRUE)
   
-  ## Create PPSF Index
+  #### PPSF Index -----
   ppsf_index <- aggIndex(trans_df = exp_$hed_df,
                          estimator = 'median',
                          price_field = 'ppsf') %>%
@@ -55,7 +55,7 @@
 
 ### Extraction Indexes ---------------------------------------------------------------------  
   
-  ## Create RT Index
+  #### RT Index -----
   rt_index <- rtIndex(trans_df = exp_$rt_df,
                       estimator = 'robust',
                       log_dep = TRUE,
@@ -64,7 +64,7 @@
                    window = vol_window,
                    in_place = TRUE) 
   
-  ## Create Hedonic Index
+  #### Hed Index -----
   hed_index <- hedIndex(trans_df = exp_$hed_df,
                         estimator = 'robust',
                         log_dep = TRUE,
@@ -77,6 +77,7 @@
                    window = vol_window,
                    in_place = TRUE)
   
+  #### NN Index -----
   nn_index <- structure(
     list(data = NULL,
     model = list(estimator = 'znn',
@@ -103,7 +104,7 @@
 
 ### Imputation Indexes ---------------------------------------------------------------------  
   
-  ## Create Hedonic Index
+  #### Hed Index -----
   hedimp_index <- hedIndex(trans_df = exp_$hed_df,
                    estimator = 'impute',
                    log_dep = TRUE,
@@ -119,9 +120,7 @@
                    in_place = TRUE)
   hedimp_index$model$approach <- 'hedimp'
   
-
-  
-  # Create RF Index
+  #### RF Index -----
   rfimp_index <- rfIndex(trans_df = exp_$hed_df,
                 estimator = 'chain',
                 log_dep = TRUE,
@@ -141,30 +140,35 @@
                    in_place = TRUE)
   rfimp_index$model$approach <- 'rf_imp'
     
-### Make Plots ----------------------------------------------------------------------------  
+### Extract and Save ---------------------------------------------------------------------  
   
  ## Extract all index objects  
+  
   idx <- ls()[grepl('_index', ls())]
   indexes_ <- list()
+  
   for (i in 1:length(idx)){
     indexes_[[i]] <- get(idx[i])
   }
   
-  # Into a data.frame
-  index_df <- purrr::map(.x = indexes_,
-                         .f = function(x){
-                           x = periodOverPeriod(x)
-                           data.frame(approach = x$model$approach,
-                                      time = 10, 
-                                      time_period = x$index$period,
-                                      month = x$index$name,
-                                      index = as.numeric(x$index$value),
-                                      MoM = round(x$index$PoP, 3),
-                                      mean_vol = x$index$volatility$mean,
-                                      med_vol = x$index$volatility$median)
-                         }) %>%
-    dplyr::bind_rows(.)
   
+  # Into a data.frame
+  index_df <- indexes2df(index_list = indexes,
+                         time_length = 10)
+  
+  # Save index data.frame
+  saveRDS(index_df,
+          file = file.path(getwd(), 'data', 'exp_10', 'indexes_df.RDS'))
+  
+  # Save Indexes
+  saveRDS(indexes_,
+          file = file.path(getwd(), 'data', 'exp_10', 'indexes.RDS'))
+
+###    
+  
+### Make Plots ----------------------------------------------------------------------------  
+  
+   
   ggplot(index_df %>%
            dplyr::filter(approach == 'agg'),
          aes(x = time_period, y = index, color = approach, group = approach)) + 
@@ -202,6 +206,15 @@
     scale_color_manual(values = c('gray70', 'gray70', 'gray70', 'gray70', 
                                   'gray70', 'purple','gray70')) +
     geom_line()
+  
+  ggplot(index_df %>%
+           dplyr::filter(approach %in% c('agg', 'agg_ppsf', 'rt', 'hed', 'nn', 
+                                         'hedimp', 'rfimp')),
+         aes(x = time_period, y = index, color = approach, group = approach)) +
+    scale_color_manual(values = c('gray70', 'gray70', 'gray70', 'gray70', 
+                                  'orchid', 'purple','gray70')) +
+    geom_line()
+  
   
  ## Volatility Plots and Calcs
   
@@ -244,13 +257,196 @@
   iv <- zoo::rollapply(y$time.series[,3], 3, stats::sd)
   mean(iv)
   
-### Imputation ---------------------------------------------------------------------------  
+### Sample ablation ---------------------------------------------------------------------------  
    
- 
- 
+  # Add price/sfqf
+  seed = 1
+  
+  exp50_ <- exp_
+  exp50_$hed_df <- exp50_$hed_df %>%
+    dplyr::sample_frac(., .50)
+  exp50_$rt_df <- 
+    rtCreateTrans(trans_df = exp50_$hed_df,
+                  prop_id = 'prop_id',
+                  trans_id = 'trans_id',
+                  price = 'price',
+                  date = 'trans_date',
+                  periodicity = exp50_$periodicity,
+                  seq_only = TRUE,
+                  min_period_dist = exp50_$train_period)
+  
+  
+  exp10_ <- exp_
+  exp10_$hed_df <- exp10_$hed_df %>%
+    dplyr::sample_frac(., .10)
+  exp10_$rt_df <- 
+    rtCreateTrans(trans_df = exp10_$hed_df,
+                  prop_id = 'prop_id',
+                  trans_id = 'trans_id',
+                  price = 'price',
+                  date = 'trans_date',
+                  periodicity = exp10_$periodicity,
+                  seq_only = TRUE,
+                  min_period_dist = exp10_$train_period)
+  
+  expmp_ <- exp_
+  expmp_$hed_df <- expmp_$hed_df %>%
+    dplyr::mutate(sale_year = as.integer(substr(trans_date, 1, 4))) 
+  expmp_$hed_df <-
+    bind_rows(expmp_$hed_df %>% dplyr::filter(sale_year <= 2018),
+              expmp_$hed_df %>% dplyr::filter(sale_year >= 2020),
+              expmp_$hed_df %>% dplyr::filter(sale_year == 2019) %>%
+                dplyr::sample_frac(., .1))
+  expmp_$rt_df <- 
+    rtCreateTrans(trans_df = expmp_$hed_df,
+                  prop_id = 'prop_id',
+                  trans_id = 'trans_id',
+                  price = 'price',
+                  date = 'trans_date',
+                  periodicity = expmp_$periodicity,
+                  seq_only = TRUE,
+                  min_period_dist = expmp_$train_period)
+  
+
+
   
   
   
+  # exp_$hed_badperiod_df <- xxx
+  # 
+  #  exp_$hed_rtonly_df <- exp_$hed_df %>%
+  #   dplyr::filter(trans_id %in% c(exp_$rt_df$trans_id1, exp_$rt_df$trans_id2))
+  # 
+  # exp_$hed_old_df <- exp_$hed_df %>%
+  #   dplyr::filter(age > 40)
+  # 
+  # exp_$hed_badperiod_df <- xxx
+  
+  
+  ## Get Aggregate index
+  agg_index50 <- aggIndex(trans_df = exp50_$hed_df,
+                        estimator = 'median') %>%
+    calcVolatility(.,
+                   window = vol_window,
+                   in_place = TRUE)
+  agg_index50$model$approach <- 'agg50'
+  
+  ## Create RT Index
+  rt_index50 <- rtIndex(trans_df = exp50_$rt_df,
+                      estimator = 'robust',
+                      log_dep = TRUE,
+                      max_period = max(exp50_$rt_df$period_2)) %>%
+    calcVolatility(.,
+                   window = vol_window,
+                   in_place = TRUE) 
+  rt_index50$model$approach <- 'rt50'
+  
+  agg_index10 <- aggIndex(trans_df = exp10_$hed_df,
+                          estimator = 'median') %>%
+    calcVolatility(.,
+                   window = vol_window,
+                   in_place = TRUE)
+  agg_index10$model$approach <- 'agg10'
+  rt_index10 <- rtIndex(trans_df = exp10_$rt_df,
+                        estimator = 'robust',
+                        log_dep = TRUE,
+                        max_period = max(exp10_$rt_df$period_2)) %>%
+    calcVolatility(.,
+                   window = vol_window,
+                   in_place = TRUE) 
+  rt_index10$model$approach <- 'rt10'
+  
+  agg_indexmp <- aggIndex(trans_df = expmp_$hed_df,
+                          estimator = 'median') %>%
+    calcVolatility(.,
+                   window = vol_window,
+                   in_place = TRUE)
+  agg_indexmp$model$approach <- 'aggmp'
+  rt_indexmp <- rtIndex(trans_df = expmp_$rt_df,
+                        estimator = 'robust',
+                        log_dep = TRUE,
+                        max_period = max(expmp_$rt_df$period_2)) %>%
+    calcVolatility(.,
+                   window = vol_window,
+                   in_place = TRUE) 
+  rt_indexmp$model$approach <- 'rtmp'
+  
+  idx <- ls()[grepl('agg_index', ls())]
+  aggindexes_ <- list()
+  for (i in 1:length(idx)){
+    aggindexes_[[i]] <- get(idx[i])
+  }
+  idx <- ls()[grepl('rt_index', ls())]
+  rtindexes_ <- list()
+  for (i in 1:length(idx)){
+    rtindexes_[[i]] <- get(idx[i])
+  }
+  
+  
+  # Into a data.frame
+  aggindex_df <- purrr::map(.x = aggindexes_,
+                         .f = function(x){
+                           x = periodOverPeriod(x)
+                           data.frame(approach = x$model$approach,
+                                      time = 10, 
+                                      time_period = x$index$period,
+                                      month = x$index$name,
+                                      index = as.numeric(x$index$value),
+                                      MoM = round(x$index$PoP, 3),
+                                      mean_vol = x$index$volatility$mean,
+                                      med_vol = x$index$volatility$median)
+                         }) %>%
+    dplyr::bind_rows(.)
+  
+  rtindex_df <- purrr::map(.x = rtindexes_,
+                            .f = function(x){
+                              x = periodOverPeriod(x)
+                              data.frame(approach = x$model$approach,
+                                         time = 10, 
+                                         time_period = x$index$period,
+                                         month = x$index$name,
+                                         index = as.numeric(x$index$value),
+                                         MoM = round(x$index$PoP, 3),
+                                         mean_vol = x$index$volatility$mean,
+                                         med_vol = x$index$volatility$median)
+                            }) %>%
+    dplyr::bind_rows(.)
+  
+  ggplot(aggindex_df,
+         aes(x = time_period, y = index, color = approach, group = approach)) + 
+    geom_line() + 
+    scale_x_continuous(breaks = seq(0,120, 12),
+                       labels = 2014:2024)
+  
+  
+  ggplot(rtindex_df,
+         aes(x = time_period, y = index, color = approach, group = approach)) + 
+    geom_line() + 
+    scale_x_continuous(breaks = seq(0,120, 12),
+                       labels = 2014:2024)
+
+### Revisions -------------
+  
+  agg_series <- createSeries(hpi_obj = agg_index,
+                             train_period = exp_$train_period,
+                             max_period = max(exp_$hed_df$trans_period),
+                             smooth = TRUE, 
+                             slim = TRUE) %>%
+    suppressWarnings()
+  agg_series <- calcRevision(series_obj = agg_series,
+                             in_place = TRUE,
+                             in_place_name = 'revision')
+  agg_series <- calcSeriesAccuracy(series_obj = agg_series,
+                                    test_method = 'forecast',
+                                    test_type = 'rt',
+                                    pred_df = exp_$rt_df,
+                                    smooth = FALSE,
+                                    in_place = TRUE,
+                                    in_place_name = 'pr_accuracy')
+  
+  agg_series <- calculateRelAccr(agg_series,
+                                 exp_)
+   
   # # Create RF Index
   # rf2 <- rfIndex(trans_df = exp_$hed_df,
   #               estimator = 'pdp',

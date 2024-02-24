@@ -62,6 +62,12 @@
                   year_built, year_reno, age, eff_age, sqft_lot, sqft, grade, condition, stories, 
                   beds, baths, garb_sqft, gara_sqft, waterfront_type, is_wfnt, golf, greenbelt, 
                   traffic = noise_traffic, view_score)
+  
+  ## Fix Vashon Island Submarket
+  
+  kingsales_df <- kingsales_df %>%
+    dplyr::mutate(submarket = ifelse(submarket == 'H', 'I', submarket))
+  
 
 ### Write out data ---------------------------------------------------------------------------------  
 
@@ -104,6 +110,10 @@
                   year_built, year_reno, age, eff_age, sqft_lot, sqft, grade, condition, stories, 
                   beds, baths, garb_sqft, gara_sqft, waterfront_type, is_wfnt, golf, greenbelt, 
                   traffic = noise_traffic, view_score)
+  
+  ## Fix Vashon Island Submarket
+  kinghomes_df <- kinghomes_df %>%
+    dplyr::mutate(submarket = ifelse(submarket == 'H', 'I', submarket))
   
 ### Write out data ---------------------------------------------------------------------------------  
   
