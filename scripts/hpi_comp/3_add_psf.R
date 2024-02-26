@@ -75,7 +75,7 @@
   exp_$ind_var <- c('grade', 'age', 'sqft', 'beds', 'baths', 'sqft_lot')
   
   #### Create Index and Series ----------
-  psf_subm_ <- purrr::map(.x = subm,
+  psf_subm_ <- purrr::map(.x = exp_$partition,
                           .f = aggWrapper,
                           exp_obj = exp_,
                           price_field = 'ppsf')

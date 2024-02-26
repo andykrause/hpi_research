@@ -12,7 +12,7 @@
 
  ## Load custom functions  
   source(file.path(getwd(), 'functions', 'wrapper_function.R'))
-  source(file.path(getwd(), 'functions', 'oldWrappers.R'))
+  #source(file.path(getwd(), 'functions', 'oldWrappers.R'))
   
 ### Read in Data ------------------------------------------------------------------------------  
   
@@ -25,23 +25,29 @@
 ### Base Index -----------
   
   #### Agg Index -----
-  rpt_index <- rtIndex(trans_df = exp_$rt_df,
-                       estimator = 'median') %>%
+  hem_index <- hedIndex(trans_df = exp_$hed_df,
+                        estimator = 'robust',
+                        log_dep = TRUE,
+                        dep_var = 'price',
+                        ind_var = exp_$ind_var,
+                        trim_model = TRUE,
+                        max_period = max(exp_$hed_df$trans_period),
+                        smooth = FALSE)%>%
     ind2stl(.)
+  hem_index$model$class <- 'tme'
   
-  rpt_series <- createSeries(hpi_obj = rpt_index,
+  hem_series <- createSeries(hpi_obj = hem_index,
                              train_period = exp_$train_period,
                              max_period = max(exp_$hed_df$trans_period),
                              smooth = TRUE, 
                              slim = TRUE) %>%
     suppressWarnings()
 
-    
-  rpt_series <- calcRevision(series_obj = rpt_series,
+  hem_series <- calcRevision(series_obj = hem_series,
                              in_place = TRUE,
                              in_place_name = 'revision')
   
-  rpt_series <- calcSeriesAccuracy(series_obj = rpt_series,
+  hem_series <- calcSeriesAccuracy(series_obj = hem_series,
                                    test_method = 'forecast',
                                    test_type = 'rt',
                                    pred_df = exp_$rt_df,
@@ -49,35 +55,30 @@
                                    in_place = TRUE,
                                    in_place_name = 'pr_accuracy')
   
-  rpt_series <- calculateRelAccr(rpt_series,
+  hem_series <- calculateRelAccr(hem_series,
                                  exp_,
                                  model_class = 'lm')
 
-  saveRDS(rpt_index,
-          file = file.path(getwd(), 'data', 'exp_10', 'rpt_index.RDS'))
-  saveRDS(rpt_series,
-          file = file.path(getwd(), 'data', 'exp_10', 'rpt_series.RDS'))
+  saveRDS(hem_index,
+          file = file.path(getwd(), 'data', 'exp_10', 'hem_index.RDS'))
+  saveRDS(hem_series,
+          file = file.path(getwd(), 'data', 'exp_10', 'hem_series.RDS'))
   
-    
 ### Submarketing ------------------  
 
   exp_$sms <- 'submarket'
-  subm <- c('A', 'B', 'C', 'D', 'E', 'F', 'G', 'I', 'J', 'K', 'L', 'M', 'N',
-            'O', 'P', 'Q', 'R', 'S')
-  exp_$partition = subm
-  exp_$partition_field = 'submarket'
+  exp_$partition <- names(table(exp_$hed_df$submarket))
+  exp_$partition_field <- 'submarket'
   exp_$ind_var <- c('grade', 'age', 'sqft', 'beds', 'baths', 'sqft_lot')
   
-  rpt_subm_ <- purrr::map(.x = subm,
-                          .f = rtWrapper,
+  hem_subm_ <- purrr::map(.x = exp_$partition,
+                          .f = hedWrapper,
                           exp_obj = exp_)
   
-  rpt_sub_obj <- unwrapPartitions(rpt_subm_)
+  hem_sub_obj <- unwrapPartitions(hem_subm_)
   
-  saveRDS(rpt_sub_obj,
-          file = file.path(getwd(), 'data', 'exp_10', 'rpt_submarket.RDS'))
-  
-  
+  saveRDS(hem_sub_obj,
+          file = file.path(getwd(), 'data', 'exp_10', 'hem_submarket.RDS'))
   
   
 # ### Sampling Differences ----------------

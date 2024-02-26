@@ -522,6 +522,246 @@ aggWrapper <- function(exp_obj,
 }
 
 
+rtWrapper <- function(exp_obj, 
+                      partition = 'all',
+                      verbose = TRUE,
+                      estimator = 'robust',
+                      log_dep = TRUE,
+                      trim_model = TRUE,
+                      vol_window = 3,
+                      ...){
+  
+  if (partition != 'all'){
+    exp_obj <- dataFilter(exp_obj, partition)
+    cat('Analyzying ', exp_obj$sms[1], ' ', partition, '\n\n')
+  }
+  
+  ## Get the max period
+  max_period <- max(exp_obj$rt_df$period_2)
+  
+  if(verbose) cat('.Estimating Full Index\n')
+  
+  rt_hpi <- rtIndex(trans_df = exp_obj$rt_df,
+                    estimator = estimator,
+                    log_dep = log_dep,
+                    trim_model = trim_model,
+                    max_period = max_period,
+                    partition = partition) %>%
+    ind2stl(.)
+  
+  gc()
+  
+  if(verbose) cat('.Calculating Index Series.\n')
+  rt_series <- createSeries(hpi_obj = rt_hpi,
+                            train_period = exp_$train_period,
+                            max_period = max_period,
+                            smooth = TRUE, 
+                            slim = TRUE)
+  
+  if(verbose) cat('.Calculating Index Revision.\n')
+  rt_series <- calcRevision(series_obj = rt_series,
+                            in_place = TRUE,
+                            in_place_name = 'revision')
+  
+  if(verbose) cat('.Calculating Series Predictive Accuracy (Repeat).\n')  
+  rt_series <- calcSeriesAccuracy(series_obj = rt_series,
+                                  test_method = 'forecast',
+                                  test_type = 'rt',
+                                  smooth = FALSE,
+                                  in_place = TRUE,
+                                  in_place_name = 'pr_accuracy')
+  
+  if(verbose) cat('.Calculating Series Predictive Accuracy (Hedonic).\n')  
+  
+  rt_hedaccr <- list()
+  for (ti in 1:(length(rt_series$hpis)-1)) {
+    rt_hedaccr[[ti]] <- getHedFitAccuracy(rt_series$hpis[[ti]],
+                                          exp_obj,
+                                          model_class = 'lm')
+  }
+  rt_series$hed_praccr <- dplyr::bind_rows(rt_hedaccr)
+  
+  if(verbose) cat('..Cleaning Up.\n')
+  rt_hpi$data <- NULL
+  rt_hpi$model <- NULL
+  gc()
+  
+  rt_series$data <- NULL
+  rt_series$hpis <- NULL
+  gc()
+  
+  return(
+    list(
+      index = rt_hpi,
+      series = rt_series
+    )
+  )
+}
+
+hedWrapper <- function(exp_obj,
+                       partition = 'all',
+                       verbose = TRUE,
+                       estimator = 'robust',
+                       log_dep = TRUE,
+                       trim_model = TRUE,
+                       vol_window = 3,
+                       ...){
+  
+  ## Filter data if a partition of the whole
+  
+  if (partition != 'all'){
+    exp_obj <- dataFilter(exp_obj, partition)
+    cat('Analyzing ', exp_obj$sms[1], ' ', partition, '\n\n')
+  }
+
+  if(verbose) cat('.Estimating Full Index\n')
+  
+  max_period <- max(exp_obj$hed_df$trans_period)
+  he_hpi <- hedIndex(trans_df = exp_obj$hed_df,
+                     estimator = estimator,
+                     log_dep = log_dep,
+                     dep_var = 'price',
+                     ind_var = exp_obj$ind_var,
+                     trim_model = TRUE,
+                     max_period = max(exp_obj$hed_df$trans_period),
+                     smooth = TRUE) %>%
+    ind2stl(.)
+  
+  gc()
+  
+  he_hpi$model$approach = 'hed'
+  
+  if(verbose) cat('.Calculating Index Series.\n')
+  he_series <- createSeries(hpi_obj = he_hpi,
+                            train_period = exp_obj$train_period,
+                            max_period = max_period,
+                            smooth = TRUE)
+
+  if(verbose) cat('.Calculating Index Revision.\n')
+  he_series <- calcRevision(series_obj = he_series,
+                            in_place = TRUE,
+                            in_place_name = 'revision')
+  
+  if(verbose) cat('.Calculating Series Predictive Accuracy.\n')
+  he_series <- calcSeriesAccuracy(series_obj = he_series,
+                                  test_method = 'forecast',
+                                  test_type = 'rt',
+                                  pred_df = exp_obj$rt_df,
+                                  smooth = FALSE,
+                                  in_place = TRUE,
+                                  in_place_name = 'pr_accuracy')
+  
+  
+  if(verbose) cat('.Calculating Series Predictive Accuracy (Hedonic).\n')  
+  
+  hed_hedaccr <- list()
+  for (ti in 1:(length(he_series$hpis)-1)) {
+    hed_hedaccr[[ti]] <- getHedFitAccuracy(he_series$hpis[[ti]],
+                                           exp_obj)
+  }
+  he_series$hed_praccr <- dplyr::bind_rows(hed_hedaccr)
+  
+  if(verbose) cat('..Cleaning Up.\n')
+  he_hpi$data <- NULL
+  he_hpi$model <- NULL
+  gc()
+  
+  he_series$data <- NULL
+  he_series$hpis <- NULL
+  gc()
+  
+  return(
+    list(
+      index = he_hpi,
+      series = he_series
+    )
+  )
+  
+}
+
+rfWrapper <- function(exp_obj,
+                      partition = 'all',
+                      estimator = 'pdp',
+                      verbose = TRUE,
+                      ntrees = 100,
+                      sim_per = .1,
+                      log_dep = TRUE,
+                      trim_model = TRUE,
+                      vol_window = 3,
+                      ...){
+  
+  if (partition != 'all'){
+    exp_obj <- dataFilter(exp_obj, partition)
+    cat('Analyzing ', exp_obj$sms[1], ' ', partition, '\n\n')
+  }
+  
+  max_period <- max(exp_obj$hed_df$trans_period)
+  rfi_hpi <- rfIndex(trans_df = exp_$hed_df,
+                    estimator = 'chain',
+                    log_dep = TRUE,
+                    dep_var = 'price',
+                    ind_var = exp_$ind_var,
+                    trim_model = TRUE,
+                    ntrees = exp_$rf_par$ntrees,
+                    sim_per = exp_$rf_par$sim_per,
+                    max_period = max(exp_$hed_df$trans_period),
+                    smooth = FALSE,
+                    min.bucket = exp_$rf_par$min_bucket,
+                    always.split.variables = 
+                      exp_$rf_par$always_split_variables) %>%
+    ind2stl(.)
+  gc()
+  
+  rfi_hpi$model$class <- 'imp'
+  rfi_hpi$model$approach <- 'rf'
+  
+  if(verbose) cat('.Calculating Index Series.\n')
+  rfi_series <- createSeries(hpi_obj = rfi_hpi,
+                            train_period = exp_obj$train_period,
+                            max_period = max_period,
+                            smooth = TRUE,
+                            ntrees = ntrees,
+                            sim_per = sim_per)
+  
+  if(verbose) cat('.Calculating Series Revision.\n')
+  rfi_series <- calcRevision(series_obj = rfi_series,
+                            in_place = TRUE,
+                            in_place_name = 'revision')
+  
+  if(verbose) cat('.Calculating Series Predictive Accuracy.\n')
+  rfi_series <- calcSeriesAccuracy(series_obj = rfi_series,
+                                  test_method = 'forecast',
+                                  test_type = 'rt',
+                                  pred_df = exp_obj$rt_df,
+                                  smooth = FALSE,
+                                  in_place = TRUE,
+                                  in_place_name = 'pr_accuracy')
+  
+  rfi_hedaccr <- list()
+  for (ti in 1:(length(rfi_series$hpis)-1)) {
+    rfi_hedaccr[[ti]] <- getHedFitAccuracy(rfi_series$hpis[[ti]],
+                                          exp_obj)
+  }
+  rfi_series$hed_praccr <- dplyr::bind_rows(rfi_hedaccr)
+  
+  if(verbose) cat('..Cleaning Up.\n')
+  rfi_hpi$data <- NULL
+  rfi_hpi$model <- NULL
+  gc()
+  
+  rfi_series$data <- NULL
+  rfi_series$hpis <- NULL
+  gc()
+  
+  return(
+    list(
+      index = rfi_hpi,
+      series = rfi_series
+    )
+  )
+}
+
+
 
 
 

@@ -75,7 +75,7 @@
   
   #### Estimate All ------------
   
-  med_subm_ <- purrr::map(.x = subm,
+  med_subm_ <- purrr::map(.x = exp_$partition,
                           .f = aggWrapper,
                           exp_obj = exp_)
   

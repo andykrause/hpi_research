@@ -12,7 +12,7 @@
 
  ## Load custom functions  
   source(file.path(getwd(), 'functions', 'wrapper_function.R'))
-  source(file.path(getwd(), 'functions', 'oldWrappers.R'))
+  #source(file.path(getwd(), 'functions', 'oldWrappers.R'))
   
 ### Read in Data ------------------------------------------------------------------------------  
   
@@ -33,20 +33,18 @@
                         trim_model = TRUE,
                         max_period = max(exp_$hed_df$trans_period),
                         smooth = FALSE,
-                        sim_df = exp_$hed_df %>%
-                          dplyr::filter(submarket != 'H')) %>%
+                        sim_df = exp_$hed_df) %>%
     ind2stl(.)
-  hei_index$model$approach <- 'ols_imp'
-  hei_index$model$class <- 'imp'
   
+  hei_index$model$class <- 'imp'
   hei_index$model$approach <- 'hed'
+  
   hei_series <- createSeries(hpi_obj = hei_index,
                                 train_period = exp_$train_period,
                                 max_period = max(exp_$hed_df$trans_period),
                                 smooth = TRUE, 
                                 slim = TRUE,
-                                sim_df = exp_$hed_df %>%
-                                  dplyr::filter(submarket != 'H')) %>%
+                                sim_df = exp_$hed_df) %>%
     suppressWarnings()
   
   hei_series <- calcRevision(series_obj = hei_series,
@@ -71,27 +69,22 @@
           file = file.path(getwd(), 'data', 'exp_10', 'hei_series.RDS'))
   
     
-### Submarketing ------------------  
+### Submarketing -----------------------------------------------------------------------------------  
 
   exp_$sms <- 'submarket'
-  subm <- c('A', 'B', 'C', 'D', 'E', 'F', 'G', 'I', 'J', 'K', 'L', 'M', 'N',
-            'O', 'P', 'Q', 'R', 'S')
-  exp_$partition = subm
-  exp_$partition_field = 'submarket'
+  exp_$partition <- names(table(exp_$hed_df$submarket))
+  exp_$partition_field <- 'submarket'
   exp_$ind_var <- c('grade', 'age', 'sqft', 'beds', 'baths', 'sqft_lot')
   
-  hei_subm_ <- purrr::map(.x = subm,
+  hei_subm_ <- purrr::map(.x = exp_$partition,
                           .f = hedWrapper,
                           exp_obj = exp_,
                           estimator = 'impute')
   
-  hei_sub_obj <- unwrapPartitions(hem_subm_)
+  hei_sub_obj <- unwrapPartitions(hei_subm_)
   
   saveRDS(hei_sub_obj,
           file = file.path(getwd(), 'data', 'exp_10', 'hei_submarket.RDS'))
-  
-  
-  
   
 # ### Sampling Differences ----------------
 #   
