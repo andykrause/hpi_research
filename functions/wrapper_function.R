@@ -192,7 +192,7 @@ getHedFitAccuracy <- function(index_obj,
   
   base_eq <- as.formula(paste('log(price) ~ ', paste(exp_obj$ind_var, collapse= '+')))
   adj_eq <- as.formula(paste('log(adj_price) ~ ', paste(exp_obj$ind_var, collapse= '+')))
-  
+   cat(model_class, '\n\n')
   if (model_class == 'lm'){
     base_lm <- lm(base_eq, train_df)   
     adj_lm <- lm(adj_eq, train_df)  
@@ -239,7 +239,8 @@ calculateRelAccr <- function(series_obj,
 }
 
 dataFilter <- function(exp_obj,
-                       partition){
+                       partition,
+                       sim_df = NULL){
   
   exp_obj$hed_df$partition_field <- exp_obj$hed_df[[exp_obj$partition_field[1]]]
   
@@ -252,44 +253,54 @@ dataFilter <- function(exp_obj,
   exp_obj$hed_df <- exp_obj$hed_df %>%
     dplyr::filter(trans_id %in% ss_ids$trans_id)
   
+  if(!is.null(sim_df)){
+    sim_df$partition_field <- sim_df[[exp_obj$partition_field]]
+    ssx_ids <- sim_df %>%
+      dplyr::filter(partition_field == partition) %>%
+      dplyr::select(pinx)
+    exp_obj$sim_df <- sim_df %>%
+      dplyr::filter(pinx %in% ssx_ids$pinx)
+  }
+  
   exp_obj
   
 }
 
 unwrapPartitions <- function(part_obj){
-  ind <- purrr::map(.x = part_obj,
-                    .f = function(x){
-                      x$index
+   ind <- purrr::map(.x = part_obj,
+                     .f = function(x){
+                       x$index$index
                     })
-  series <- purrr::map(.x = part_obj,
+  
+  stl <- purrr::map(.x = part_obj,
                     .f = function(x){
-                      x$series
-                    })
-  vol <- purrr::map(.x = part_obj,
-                       .f = function(x){
-                         x$vol
-                       })
-  volS <- purrr::map(.x = part_obj,
-                       .f = function(x){
-                         x$volS
-                       })
+                      x$index$stl
+                    }) %>%
+    dplyr::bind_rows()
+  
   
   revision <- purrr::map(.x = part_obj,
                      .f = function(x){
-                       x$revision
-                     })
+                       data.frame(median = x$series$revision$median,
+                                  mean = x$series$revision$mean,
+                                  abs_median = x$series$revision$abs_median,
+                                  abs_mean = x$series$revision$abs_mean)}) %>%
+    dplyr::bind_rows()
+  
   absacc <- purrr::map(.x = part_obj,
                            .f = function(x){
-                             x$absacc
-                           })
+                             x$series$pr_accuracy
+                           }) %>%
+    dplyr::bind_rows()
+  
   relacc <- purrr::map(.x = part_obj,
                        .f = function(x){
-                         x$relacc
-                       })
+                         x$series$hed_praccr
+                       }) %>%
+    dplyr::bind_rows()
+  
   list(index = ind,
-       series = series,
-       vol = vol,
-       volS = volS,
+       stl = stl,
        revision = revision,
        absacc = absacc,
        relaccc = relacc)
@@ -499,8 +510,7 @@ aggWrapper <- function(exp_obj,
   
   for (ti in 1:(length(agg_series$hpis)-1)) {
     agg_hedaccr[[ti]] <- getHedFitAccuracy(agg_series$hpis[[ti]],
-                                           exp_obj,
-                                           model_class = 'lm')
+                                           exp_obj)
   }
   agg_series$hed_praccr <- dplyr::bind_rows(agg_hedaccr)
   
@@ -576,8 +586,7 @@ rtWrapper <- function(exp_obj,
   rt_hedaccr <- list()
   for (ti in 1:(length(rt_series$hpis)-1)) {
     rt_hedaccr[[ti]] <- getHedFitAccuracy(rt_series$hpis[[ti]],
-                                          exp_obj,
-                                          model_class = 'lm')
+                                          exp_obj)
   }
   rt_series$hed_praccr <- dplyr::bind_rows(rt_hedaccr)
   
@@ -605,12 +614,13 @@ hedWrapper <- function(exp_obj,
                        log_dep = TRUE,
                        trim_model = TRUE,
                        vol_window = 3,
+                       sim_df = NULL,
                        ...){
   
   ## Filter data if a partition of the whole
   
   if (partition != 'all'){
-    exp_obj <- dataFilter(exp_obj, partition)
+    exp_obj <- dataFilter(exp_obj, partition, sim_df)
     cat('Analyzing ', exp_obj$sms[1], ' ', partition, '\n\n')
   }
 
@@ -624,7 +634,8 @@ hedWrapper <- function(exp_obj,
                      ind_var = exp_obj$ind_var,
                      trim_model = TRUE,
                      max_period = max(exp_obj$hed_df$trans_period),
-                     smooth = TRUE) %>%
+                     smooth = TRUE,
+                     sim_df = exp_obj$sim_df) %>%
     ind2stl(.)
   
   gc()
@@ -635,7 +646,8 @@ hedWrapper <- function(exp_obj,
   he_series <- createSeries(hpi_obj = he_hpi,
                             train_period = exp_obj$train_period,
                             max_period = max_period,
-                            smooth = TRUE)
+                            smooth = TRUE,
+                            sim_df = exp_obj$sim_df)
 
   if(verbose) cat('.Calculating Index Revision.\n')
   he_series <- calcRevision(series_obj = he_series,
@@ -684,6 +696,7 @@ rfWrapper <- function(exp_obj,
                       estimator = 'pdp',
                       verbose = TRUE,
                       ntrees = 100,
+                      sim_df = NULL,
                       sim_per = .1,
                       log_dep = TRUE,
                       trim_model = TRUE,
@@ -691,7 +704,7 @@ rfWrapper <- function(exp_obj,
                       ...){
   
   if (partition != 'all'){
-    exp_obj <- dataFilter(exp_obj, partition)
+    exp_obj <- dataFilter(exp_obj, partition, sim_df)
     cat('Analyzing ', exp_obj$sms[1], ' ', partition, '\n\n')
   }
   
@@ -700,15 +713,15 @@ rfWrapper <- function(exp_obj,
                     estimator = 'chain',
                     log_dep = TRUE,
                     dep_var = 'price',
-                    ind_var = exp_$ind_var,
+                    ind_var = exp_obj$ind_var,
                     trim_model = TRUE,
-                    ntrees = exp_$rf_par$ntrees,
-                    sim_per = exp_$rf_par$sim_per,
-                    max_period = max(exp_$hed_df$trans_period),
+                    ntrees = exp_obj$rf_par$ntrees,
+                    sim_df = exp_obj$sim_df,
+                    max_period = max(exp_obj$hed_df$trans_period),
                     smooth = FALSE,
-                    min.bucket = exp_$rf_par$min_bucket,
+                    min.bucket = exp_obj$rf_par$min_bucket,
                     always.split.variables = 
-                      exp_$rf_par$always_split_variables) %>%
+                      exp_obj$rf_par$always_split_variables) %>%
     ind2stl(.)
   gc()
   
@@ -721,12 +734,12 @@ rfWrapper <- function(exp_obj,
                             max_period = max_period,
                             smooth = TRUE,
                             ntrees = ntrees,
-                            sim_per = sim_per)
+                            sim_df = exp_obj$sim_df)
   
   if(verbose) cat('.Calculating Series Revision.\n')
   rfi_series <- calcRevision(series_obj = rfi_series,
-                            in_place = TRUE,
-                            in_place_name = 'revision')
+                             in_place = TRUE,
+                             in_place_name = 'revision')
   
   if(verbose) cat('.Calculating Series Predictive Accuracy.\n')
   rfi_series <- calcSeriesAccuracy(series_obj = rfi_series,
@@ -740,7 +753,7 @@ rfWrapper <- function(exp_obj,
   rfi_hedaccr <- list()
   for (ti in 1:(length(rfi_series$hpis)-1)) {
     rfi_hedaccr[[ti]] <- getHedFitAccuracy(rfi_series$hpis[[ti]],
-                                          exp_obj)
+                                           exp_obj)
   }
   rfi_series$hed_praccr <- dplyr::bind_rows(rfi_hedaccr)
   

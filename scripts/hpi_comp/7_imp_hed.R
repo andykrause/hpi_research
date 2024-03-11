@@ -22,6 +22,13 @@
   # Read in experiment object (includes pre-filtered data)
   exp_ <- readRDS(file = file.path(getwd(), 'data', exp, 'exp_obj.RDS'))
 
+  ## Create imputation data set
+  homes_df <- readRDS(file = file.path(getwd(), 'data', 'kinghomes_df.RDS'))
+  set.seed(1)
+  uni_df <- homes_df %>%
+    dplyr::sample_frac(., .25)
+  
+  
 ### Base Index -----------
   
   #### Agg Index -----
@@ -33,7 +40,7 @@
                         trim_model = TRUE,
                         max_period = max(exp_$hed_df$trans_period),
                         smooth = FALSE,
-                        sim_df = exp_$hed_df) %>%
+                        sim_df = uni_df) %>%
     ind2stl(.)
   
   hei_index$model$class <- 'imp'
@@ -44,7 +51,7 @@
                                 max_period = max(exp_$hed_df$trans_period),
                                 smooth = TRUE, 
                                 slim = TRUE,
-                                sim_df = exp_$hed_df) %>%
+                                sim_df = uni_df) %>%
     suppressWarnings()
   
   hei_series <- calcRevision(series_obj = hei_series,
@@ -60,9 +67,9 @@
                                    in_place_name = 'pr_accuracy')
   
   hei_series <- calculateRelAccr(hei_series,
-                                 exp_,
-                                 model_class = 'lm')
-
+                                 exp_)
+  hei_index$model$approach <- 'hei'
+  
   saveRDS(hei_index,
           file = file.path(getwd(), 'data', 'exp_10', 'hei_index.RDS'))
   saveRDS(hei_series,
@@ -74,12 +81,14 @@
   exp_$sms <- 'submarket'
   exp_$partition <- names(table(exp_$hed_df$submarket))
   exp_$partition_field <- 'submarket'
-  exp_$ind_var <- c('grade', 'age', 'sqft', 'beds', 'baths', 'sqft_lot')
+  exp_$ind_var <- c('grade', 'age', 'sqft', 'beds', 'baths', 'sqft_lot', 'use', 
+                    'latitude', 'longitude')
   
   hei_subm_ <- purrr::map(.x = exp_$partition,
                           .f = hedWrapper,
                           exp_obj = exp_,
-                          estimator = 'impute')
+                          estimator = 'impute',
+                          sim_df = uni_df)
   
   hei_sub_obj <- unwrapPartitions(hei_subm_)
   

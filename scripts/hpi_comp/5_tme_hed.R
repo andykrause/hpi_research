@@ -56,8 +56,7 @@
                                    in_place_name = 'pr_accuracy')
   
   hem_series <- calculateRelAccr(hem_series,
-                                 exp_,
-                                 model_class = 'lm')
+                                 exp_)
 
   saveRDS(hem_index,
           file = file.path(getwd(), 'data', 'exp_10', 'hem_index.RDS'))
@@ -69,7 +68,8 @@
   exp_$sms <- 'submarket'
   exp_$partition <- names(table(exp_$hed_df$submarket))
   exp_$partition_field <- 'submarket'
-  exp_$ind_var <- c('grade', 'age', 'sqft', 'beds', 'baths', 'sqft_lot')
+  exp_$ind_var <- c('grade', 'age', 'sqft', 'beds', 'baths', 'sqft_lot', 'use', 
+                    'latitude', 'longitude')
   
   hem_subm_ <- purrr::map(.x = exp_$partition,
                           .f = hedWrapper,

@@ -24,8 +24,9 @@
 
   ## Create imputation data set
   homes_df <- readRDS(file = file.path(getwd(), 'data', 'kinghomes_df.RDS'))
+  set.seed(1)
   uni_df <- homes_df %>%
-    dplyr::sample_frac(., .1)
+    dplyr::sample_frac(., .25)
   
   
 ### Base Index -----------
@@ -38,7 +39,7 @@
                          ind_var = exp_$ind_var,
                          trim_model = TRUE,
                          ntrees = exp_$rf_par$ntrees,
-                         sim_per = exp_$rf_par$sim_per,
+                         #sim_per = exp_$rf_par$sim_per,
                          max_period = max(exp_$hed_df$trans_period),
                          smooth = FALSE,
                          min.bucket = exp_$rf_par$min_bucket,
@@ -71,9 +72,9 @@
                                    in_place_name = 'pr_accuracy')
   
   rfi_series <- calculateRelAccr(rfi_series,
-                                 exp_,
-                                 model_class = 'lm')
-
+                                 exp_)
+  
+  rfi_index$model$approach <- 'rfi'
   saveRDS(rfi_index,
           file = file.path(getwd(), 'data', 'exp_10', 'rfi_index.RDS'))
   saveRDS(rfi_series,
@@ -85,12 +86,14 @@
   exp_$sms <- 'submarket'
   exp_$partition <- names(table(exp_$hed_df$submarket))
   exp_$partition_field <- 'submarket'
-  exp_$ind_var <- c('grade', 'age', 'sqft', 'beds', 'baths', 'sqft_lot')
+  exp_$ind_var <- c('grade', 'age', 'sqft', 'beds', 'baths', 'sqft_lot', 'use', 
+                    'latitude', 'longitude')
   
   rfi_subm_ <- purrr::map(.x = exp_$partition,
                           .f = rfWrapper,
                           exp_obj = exp_,
-                          estimator = 'impute')
+                          estimator = 'chain',
+                          sim_df = uni_df)
   
   rfi_sub_obj <- unwrapPartitions(rfi_subm_)
   

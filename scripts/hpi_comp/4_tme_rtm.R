@@ -28,6 +28,7 @@
   rtm_index <- rtIndex(trans_df = exp_$rt_df,
                        estimator = 'robust') %>%
     ind2stl(.)
+  rtm_index$model$class <- 'tme'
   
   rtm_series <- createSeries(hpi_obj = rtm_index,
                              train_period = exp_$train_period,
@@ -49,8 +50,7 @@
                                    in_place_name = 'pr_accuracy')
   
   rtm_series <- calculateRelAccr(rtm_series,
-                                 exp_,
-                                 model_class = 'lm')
+                                 exp_)
 
   saveRDS(rtm_index,
           file = file.path(getwd(), 'data', 'exp_10', 'rtm_index.RDS'))
@@ -62,7 +62,8 @@
   exp_$sms <- 'submarket'
   exp_$partition <- names(table(exp_$hed_df$submarket))
   exp_$partition_field <- 'submarket'
-  exp_$ind_var <- c('grade', 'age', 'sqft', 'beds', 'baths', 'sqft_lot')
+  exp_$ind_var <- c('grade', 'age', 'sqft', 'beds', 'baths', 'sqft_lot', 'use', 
+                    'latitude', 'longitude')
   
   rtm_subm_ <- purrr::map(.x = exp_$partition,
                           .f = rtWrapper,

@@ -1,6 +1,6 @@
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
-#  Run 10 year, aggregate index analyses
+#  Run 10 year, median index analyses
 #
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -11,8 +11,9 @@
   library(hpiR) # Ensure this is v 0.3.0 from Github, not 0.2.0 from CRAN
 
  ## Load custom functions  
-  source(file.path(getwd(), 'functions', 'wrapper_function.R'))
   
+  source(file.path(getwd(), 'functions', 'wrapper_function.R'))
+
 ### Read in Data ------------------------------------------------------------------------------  
   
   # Set Experiment Setup to use
@@ -23,32 +24,30 @@
 
 ### Base Index + Series -----------
   
-  #### PSF Index -----
-  psf_index <- aggIndex(trans_df = exp_$hed_df,
-                        estimator = 'median',
-                        price_field = 'ppsf') %>%
+  #### Med Index -----
+  med_index <- aggIndex(trans_df = exp_$hed_df,
+                        estimator = 'median') %>%
     ind2stl(.)
   
-  psf_index$model$approach <- 'agg'
-  psf_index$model$class <- 'agg'
+  med_index$model$approach <- 'agg'
+  med_index$model$class <- 'agg'
   
-  #### PSF Series ------------
+  #### Med Series -----------
   
-  psf_series <- createSeries(hpi_obj = psf_index,
+  med_series <- createSeries(hpi_obj = med_index,
                              train_period = exp_$train_period,
                              max_period = max(exp_$hed_df$trans_period),
                              smooth = TRUE, 
-                             slim = TRUE,
-                             price_field = 'ppsf') %>%
+                             slim = TRUE) %>%
     suppressWarnings()
   
-  psf_series <- calcRevision(series_obj = psf_series,
+  med_series <- calcRevision(series_obj = med_series,
                              in_place = TRUE,
                              in_place_name = 'revision')
   
-  #### Accuracy ---------
+  #### Accuracy ----------
   
-  psf_series <- calcSeriesAccuracy(series_obj = psf_series,
+  med_series <- calcSeriesAccuracy(series_obj = med_series,
                                    test_method = 'forecast',
                                    test_type = 'rt',
                                    pred_df = exp_$rt_df,
@@ -56,39 +55,42 @@
                                    in_place = TRUE,
                                    in_place_name = 'pr_accuracy')
   
-  psf_series <- calculateRelAccr(psf_series,
-                                 exp_,
-                                 model_class = 'lm')
-
-  #### Write Out -----------
+  med_series <- calculateRelAccr(med_series,
+                                 exp_)
   
-  saveRDS(psf_index,
-          file = file.path(getwd(), 'data', 'exp_10', 'psf_index.RDS'))
-  saveRDS(psf_series,
-          file = file.path(getwd(), 'data', 'exp_10', 'psf_series.RDS'))
+  #### Write out -----------
+  
+  saveRDS(med_index,
+          file = file.path(getwd(), 'data', 'exp_10', 'med_index.RDS'))
+  saveRDS(med_series,
+          file = file.path(getwd(), 'data', 'exp_10', 'med_series.RDS'))
   
 ### Submarketing -----------------------------------------------------------------------------------  
-  
+
   exp_$sms <- 'submarket'
   exp_$partition <- names(table(exp_$hed_df$submarket))
   exp_$partition_field <- 'submarket'
-  exp_$ind_var <- c('grade', 'age', 'sqft', 'beds', 'baths', 'sqft_lot')
+  exp_$ind_var <- c('grade', 'age', 'sqft', 'beds', 'baths', 'sqft_lot', 'use', 
+                    'latitude', 'longitude')
   
-  #### Create Index and Series ----------
-  psf_subm_ <- purrr::map(.x = exp_$partition,
+  #### Estimate All ------------
+  
+  med_subm_ <- purrr::map(.x = exp_$partition,
                           .f = aggWrapper,
-                          exp_obj = exp_,
-                          price_field = 'ppsf')
+                          exp_obj = exp_)
   
-  psf_sub_obj <- unwrapPartitions(psf_subm_)
+  med_sub_obj <- unwrapPartitions(med_subm_)
   
-  #### Write Out ----------------
-  saveRDS(psf_sub_obj,
-          file = file.path(getwd(), 'data', 'exp_10', 'psf_submarket.RDS'))
+  #### Write Out -----------------
+  
+  saveRDS(med_sub_obj,
+          file = file.path(getwd(), 'data', 'exp_10', 'med_submarket.RDS'))
   
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
+  
   
 # ### Sampling Differences
 #   
