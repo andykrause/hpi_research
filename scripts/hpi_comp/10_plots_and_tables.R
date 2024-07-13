@@ -26,19 +26,43 @@
   model_names <-  c('Agg: Med', 'Agg: PSF', 'TME: Rep', 'TME: OLS',
                     'TME: NN', 'Imp: OLS', 'Imp: RF')
   model_relevel <- c('med', 'psf', 'rtm', 'hem', 'nnm', 'hei', 'rfi')
+  method_df <- 
+    data.frame(method = model_relevel,
+               method_name = model_names)
   
   month_labs <- paste0('Dec-', 2013:2023)
-  plotwidth <- 1540
+  plotwidth <- 1960
   plotheight <- 860
   bg_col <- 'gray80'
   line_size <- 1.8
   text_size <- 24
 
+### Set Plot Templates --------------------------  
+  
+  method_base_plot <- 
+    ggplot() + 
+    theme_minimal() + 
+    theme(text=element_text(size = text_size),
+          legend.position = 'bottom') +
+    scale_x_discrete(labels = model_names) + 
+    xlab('\n Index Method') 
+  
 ### Index Comparison -------------------------------------------------------------------------------
 
-  # Re-order levels
+  ## Re-order levels
+  
+  # County
   index_df <- index_df %>%
     dplyr::mutate(method = forcats::fct_relevel(method, model_relevel)) 
+  
+  # Submarket
+  indexS_df <- subm$index_df %>%
+    dplyr::left_join(., subm$stl_df %>%
+                       dplyr::rename(time_period = period), 
+                     by = c('time_period', 'approach', 'subm')) %>%
+    dplyr::rename(method = approach) %>%
+    dplyr::mutate(method = forcats::fct_relevel(method, model_relevel)) %>%
+    dplyr::left_join(., method_df, by = 'method')
   
  #### Set Base Plot -------------------  
 
@@ -171,6 +195,74 @@
            width = plotwidth, height = plotheight) 
   dev.off()
   
+ #### All Index (County) -----------------------
+  
+  ## Built Plot
+   allindex_plot <- 
+    index_base_plot +
+    geom_line(data = index_df, 
+              aes(x = time_period, y = index, color = method, group = method), 
+              size = line_size) + 
+    scale_color_manual(name = 'Index Method',
+                       values = color_df$colorx,
+                       labels = model_names) #+ 
+    #ggtitle('All Indexes', subtitle = "King County, WA")
+  
+  ## Plot and Save
+  allindex_plot
+  dev.copy(device = png, 
+           filename = file.path(getwd(), 'papers', 'hpi_comp', 'figures', 'all_indexes.png'), 
+           width = plotwidth, height = plotheight) 
+  dev.off()
+  
+ #### All Index Zoomed (County) -----------------------
+  
+  ## Built Plot
+  allindexzoom_plot <- 
+    index_base_plot +
+    geom_line(data = index_df, 
+              aes(x = time_period, y = index, color = method, group = method), 
+              size = line_size) + 
+    scale_color_manual(name = 'Index Method',
+                       values = color_df$colorx,
+                       labels = model_names) + 
+    coord_cartesian(xlim = c(84, 120),
+                    ylim = c(150, 260)) #+ 
+    #ggtitle('All Indexes (Zoomed)', subtitle = "King County, WA")
+  
+  ## Plot and Save
+  allindexzoom_plot
+  dev.copy(device = png, 
+           filename = file.path(getwd(), 'papers', 'hpi_comp', 'figures', 'all_indexeszoom.png'), 
+           width = plotwidth, height = plotheight) 
+  dev.off()
+  
+ #### Submarket Indexes ------------------------
+  sub_index_plot <- 
+    index_base_plot + 
+    coord_cartesian(ylim = c(75, 350)) + 
+    geom_line(data = indexS_df,
+              aes(x = time_period, y = index, color = method, group = subm),
+              size = .4,
+              alpha = .5,
+              show.legend = FALSE) + 
+    facet_wrap(~method_name, ncol = 4) + 
+    scale_color_manual(name = 'Index Method',
+                       values = color_df$colorx[c(6,4,1,5,2, 7,3)],
+                       labels = model_names) + 
+    scale_x_continuous(breaks = seq(12, 108, by = 48),
+                       labels = paste0('Dec-', c(2014, 2018, 2022))) + 
+    geom_line(data = index_df %>%
+                dplyr::left_join(., method_df, by = 'method'),
+              aes(x = time_period, y = index, group = method), color = 'black') #+ 
+   # ggtitle('All Indexes', subtitle = "18 Submarkets in King County, WA")
+  
+  sub_index_plot 
+  dev.copy(device = png, 
+           filename = file.path(getwd(), 'papers', 'hpi_comp', 'figures', 'subm_indexes.png'), 
+           width = plotwidth, height = plotheight) 
+  dev.off()
+
 ### Volatility --------------------------------------------------------------------------- 
  
  #### Trend Plot -----------------------------
@@ -191,7 +283,7 @@
                        name = 'Index Approach') +
     ylab('Trend \n (w/o Seasonality and Noise)')  +
     xlab('') + 
-    ggtitle('Index Trend Comparisons') + 
+   # ggtitle('Index Trend Comparisons') + 
     theme(legend.position = 'bottom')  
   
   trend_plot
@@ -202,26 +294,27 @@
   
  #### Seasonality --------------
   
-  method_base_plot <- 
-    ggplot() + 
-    theme_minimal() + 
-    theme(text=element_text(size = text_size),
-          legend.position = 'bottom') +
-    scale_x_discrete(labels = model_names) + 
-    xlab('\n Index Method') 
-  
+  ## Prep Data
+  seas_df <- index_df %>%
+    dplyr::mutate(geo = 'all') %>%
+    dplyr::left_join(., method_df, by = 'method') %>%
+    dplyr::bind_rows(., indexS_df %>%
+                       dplyr::mutate(geo = 'subm'))
   season_plot <- 
     method_base_plot + 
     geom_hline(yintercept = 0, linetype = 3, color = 'black') +
-    geom_line(data = index_df, 
-              aes(x = method, y = seasonal, color = method),
-              size = 6,
-              show.legend = FALSE) +  
-    scale_color_manual(values = color_df$colorx,
-                       labels = model_names,
-                       name = 'Index Approach') +
-    ylab('Seasonality Range') + 
-    ggtitle('Index Seasonality Range') + 
+    geom_line(data = seas_df, 
+                 aes(x = geo, y = seasonal, color = method, alpha = geo),
+                 size = 14,
+                 show.legend = FALSE) +  
+    facet_wrap(~method_name, nrow=1) + 
+    scale_x_discrete(labels = c('All', 'Subm')) + 
+    scale_alpha_manual(values = c(1,.4)) + 
+    #scale_color_manual(values = c('black', 'gray60')) + 
+    scale_color_manual(values = color_df$colorx[c(6,4,1,5,2, 7,3)]) +
+    ylab('Seasonality Range\n Index Points\n') + 
+    xlab('') + 
+   # ggtitle('Seasonality Range', subtitle = 'All County vs Submarkets') + 
     theme(legend.position = 'none')
   
   season_plot
@@ -235,25 +328,29 @@
   
   vol_plot <- 
     method_base_plot + 
-    geom_boxplot(data = index_df, 
-                 aes(x = method, y = abs(remainder), fill = method),
-                 show.legend = FALSE,
-                 color = 'black') + 
-    scale_fill_manual(values = color_df$colorx,
-                       labels = model_names,
-                       name = '') +
-   ylab('Volatility \n (Remainder)') + 
-   coord_cartesian(ylim = c(0, 6)) + 
-   ggtitle('Index Volatility', subtitle = 'Remainder of Seasonal/Trend Decomposition')
- 
+    geom_hline(yintercept = 0, linetype = 3, color = 'black') +
+    geom_boxplot(data = seas_df, 
+              aes(x = geo, y = remainder, color = geo, fill=method, alpha = geo),
+              size = 1,
+              show.legend = FALSE) +  
+    facet_wrap(~method_name, nrow=1) + 
+    scale_x_discrete(labels = c('All', 'Subm')) + 
+    scale_alpha_manual(values = c(1,.4)) + 
+    scale_color_manual(values = c('black', 'gray60')) + 
+    scale_fill_manual(values = color_df$colorx[c(6,4,1,5,2, 7,3)]) +
+    ylab('Volatility Range\n Index Points\n') + 
+    xlab('') + 
+    coord_cartesian(ylim = c(-15, 15)) + 
+    #ggtitle('Volatility Range', subtitle = 'All County vs Submarkets') + 
+    theme(legend.position = 'none')
+  
   vol_plot
   
   dev.copy(device = png, 
            filename = file.path(getwd(), 'papers', 'hpi_comp', 'figures', 'vol_comparison.png'), 
            width = plotwidth, height = plotheight) 
   dev.off()
- 
-
+  
  #### Directional Volatility Plot ----------
   
   dvol_plot <- 
@@ -281,16 +378,38 @@
   
   rev_df <- series$rev_df %>%
    dplyr::mutate(method = forcats::fct_relevel(method, model_relevel)) 
- 
+  
+  revS_df <- subm$rev_df %>%
+    dplyr::group_by(method, class) %>%
+    dplyr::summarize(median = mean(median),
+                     abs_median = mean(abs_median),
+                     mean = mean(mean),
+                     abs_mean = mean(abs_mean)) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(method = forcats::fct_relevel(method, model_relevel)) 
+  
+  rev_sdf <- rev_df %>%
+    dplyr::mutate(geo = 'all') %>%
+    dplyr::bind_rows(., revS_df %>%
+                       dplyr::mutate(geo = 'subm')) %>%
+    dplyr::mutate(method = forcats::fct_relevel(method, model_relevel))
+  
   rev_plot <-
     method_base_plot + 
     geom_bar(data = rev_df, 
              aes(x = method, y = abs_mean, fill=method),
              stat = 'identity',
              show.legend = FALSE) + 
-   scale_fill_manual(values = color_df$colorx,
+    scale_fill_manual(values = color_df$colorx,
                      labels = model_names) +
-    ylab('Mean Absolute Revision Level') +
+    geom_bar(data = revS_df, 
+             aes(x = method, y = abs_mean, fill=method),
+             stat = 'identity',
+             alpha = .4,
+             show.legend = FALSE) + 
+    scale_fill_manual(values = color_df$colorx,
+                      labels = model_names) +
+    ylab('Mean Absolute Revision Level\n') +
     theme(legend.position = 'none')
   rev_plot
   
@@ -301,6 +420,9 @@
     
 ### Prediction errors ------------------------------------------------------------------------------
   
+  ## Prep Data
+  
+  # County
   pred_df <- series$abs_df %>%
     as.data.frame()
   
@@ -314,17 +436,41 @@
     dplyr::mutate(method = as.factor(method)) %>%
     dplyr::mutate(method = forcats::fct_relevel(method, model_relevel)) 
   
-  pred_plot <-
-    method_base_plot +
+  # Submarkets
+  predS_df <- subm$abs_df %>%
+    as.data.frame()
+  
+  predS_sdf <- predS_df %>%
+    dplyr::group_by(method) %>%
+    dplyr::summarize(count = dplyr::n(),
+                     mdpe = median(error),
+                     mpe = mean(error),
+                     mdape = median(abs(error)),
+                     mape = mean(abs(error))) %>%
+    dplyr::mutate(method = as.factor(method)) %>%
+    dplyr::mutate(method = forcats::fct_relevel(method, model_relevel)) 
+  
+  # Make Plot
+  pred_plot <- 
+    method_base_plot + 
     geom_bar(data = pred_sdf,
              aes(x = method, y = mape, color = method, fill = method),
+             alpha = .15,
              show.legend = FALSE,
              stat = 'identity') + 
-    ylab('Mean Absolute Predictive Error') + 
-    ggtitle('Predictive Error', subtitle = 'Prediction On Resale') + 
-    coord_cartesian(ylim = c(.11, .125)) + 
+    geom_bar(data = predS_sdf,
+             aes(x = method, y = mape, color = method, fill = method),
+             #alpha = .15,
+             stat = 'identity',
+             show.legend = FALSE) + 
+    coord_cartesian(ylim = c(.09, .12)) + 
     scale_fill_manual(values = color_df$colorx)+
-    scale_color_manual(values = color_df$colorx)
+    scale_color_manual(values = color_df$colorx) + 
+    ylab('Mean Absolute Predictive Error\n') + 
+    annotate('text', x = 5, y = .119, color = 'red', size = 12,
+             label = "Opaque = Submarket\nTransparent = Full County")# + 
+   # ggtitle('Predictive Error', 
+   #         subtitle = 'Prediction On Resale')
   
   pred_plot
 
@@ -349,26 +495,56 @@
     dplyr::mutate(method = as.factor(method)) %>%
     dplyr::mutate(method = forcats::fct_relevel(method, model_relevel)) 
 
-  ast_plot <-
-    method_base_plot +
+  astS_df <- subm$rel_df %>%
+    as.data.frame() %>%
+    dplyr::filter(type != 'base')
+  
+  astS_sdf <- astS_df %>%
+    dplyr::group_by(method) %>%
+    dplyr::summarize(count = dplyr::n(),
+                     mdpe = median(error),
+                     mpe = mean(error),
+                     mdape = median(abs(error)),
+                     mape = mean(abs(error)))
+  astS_sdf <- astS_sdf %>%
+    dplyr::mutate(method = as.factor(method)) %>%
+    dplyr::mutate(method = forcats::fct_relevel(method, model_relevel)) 
+  
+  astS_plot <- 
+    method_base_plot + 
+    geom_bar(data = astS_sdf,
+             aes(x = method, y = mape, color = method, fill = method),
+             stat = 'identity',
+             show.legend = FALSE) + 
     geom_bar(data = ast_sdf,
              aes(x = method, y = mape, color = method, fill = method),
+             alpha = .15,
              show.legend = FALSE,
              stat = 'identity') + 
-    ylab('Mean Absolute Assistive Error') + 
-    ggtitle('"Assistive" Error', subtitle = 'AVM with Index Adjustments') + 
-    coord_cartesian(ylim = c(.123, .133)) + 
-    scale_fill_manual(values = color_df$colorx)+
-    scale_color_manual(values = color_df$colorx)
+    geom_bar(data = ast_sdf %>%
+               dplyr::filter(method == 'rtm'),
+             aes(x = method, y = mape),
+             color = 'white',
+             fill = 'white',
+             alpha = .35,
+             show.legend = FALSE,
+             stat = 'identity') + 
+    coord_cartesian(ylim = c(.115, .135)) + 
+    scale_fill_manual(values = color_df$colorx) +
+    scale_color_manual(values = color_df$colorx) + 
+    ylab('Mean Absolute Assistive Error\n') + 
+    annotate('text', x = 5, y = .1325, color = 'red', size = 12,
+             label = "Opaque = Submarket\nTransparent = Full County") #+ 
+    #ggtitle('Assistive Error', subtitle = 'AVM Error Using Index')
   
-  ast_plot
+  astS_plot
   
   dev.copy(device = png, 
-           filename = file.path(getwd(), 'papers', 'hpi_comp', 'figures', 'asacc_comparison.png'), 
+           filename = file.path(getwd(), 'papers', 'hpi_comp', 'figures', 'asterror_comparison.png'), 
            width = plotwidth, height = plotheight) 
   dev.off()
 
- #### All Errors --------------------------
+### All Errors --------------------------
   
   alle_sdf <- ast_sdf %>%
     dplyr::select(method, ast_mape = mape) %>%
@@ -378,26 +554,48 @@
     dplyr::mutate(method = forcats::fct_relevel(method, model_relevel)) %>%
     dplyr::arrange(method) %>%
     dplyr::mutate(ast_imp = 1-ast_mape/ast_mape[1],
-                  pred_imp = 1-pred_mape/pred_mape[1])
+                  pred_imp = 1-pred_mape/pred_mape[1],
+                  geo = 'county')
   alle_sdf
+
+  alleS_sdf <- astS_sdf %>%
+    dplyr::select(method, ast_mape = mape) %>%
+    dplyr::left_join(., predS_sdf %>%
+                       dplyr::select(method, pred_mape = mape),
+                     by = 'method') %>%
+    dplyr::mutate(method = forcats::fct_relevel(method, model_relevel)) %>%
+    dplyr::arrange(method) %>%
+    dplyr::mutate(ast_imp = 1-ast_mape/ast_mape[1],
+                  pred_imp = 1-pred_mape/pred_mape[1],
+                  geo = 'subm')
+  alleS_sdf
   
+  allex_sdf <- alleS_sdf %>%
+    dplyr::bind_rows(alle_sdf)
+    
   errcomp_plot <- 
     ggplot() + 
     theme_minimal() + 
     theme(text=element_text(size = text_size+12),
           legend.position = 'bottom') +
-    geom_point(data = alle_sdf[-1, ],
-             aes(x = pred_imp, y = ast_imp, color = method),
+    geom_point(data = allex_sdf %>% 
+                 dplyr::filter(method != 'med'),
+             aes(x = pred_imp, y = ast_imp, color = method, shape = geo),
              size = 16) + 
+    scale_shape_manual(values = c(15,17),
+                       name = '',
+                       labels = c('All County', 'Submarkets')) + 
     scale_color_manual(name = '',
                        values = color_df$colorx[2:7],
                        labels = model_names[2:7]) + 
-    coord_cartesian(xlim = c(0.035, 0.082),
-                    ylim = c(0.035, .06)) + 
-    scale_x_continuous(breaks = seq(0.04, 0.08, by =.01),
-                     labels = paste0(4:8, "%")) + 
-    scale_y_continuous(breaks = seq(0.04, 0.06, by =.01),
-                       labels = paste0(4:6, "%")) + 
+    #scale_alpha_manual(values = c(1, .4)) + 
+    #coord_cartesian(xlim = c(0.035, 0.082),
+    #                ylim = c(0.035, .06)) + 
+    scale_x_continuous(breaks = seq(0.04, 0.1, by =.01),
+                     labels = paste0(4:10, "%")) + 
+    scale_y_continuous(breaks = seq(-0.04, 0.1, by =.01),
+                       labels = paste0(-4:10, "%")) + 
+    geom_hline(yintercept = 0, linetype = 'dashed') + 
     ylab('Assistive Error % Improvement \nover Median Index\n') + 
     xlab('\nPredictive Error % Improvement \nover Median Index')
     
@@ -408,191 +606,4 @@
            width = plotwidth, height = plotheight) 
   dev.off()
   
-### Submarket analysis -----------------------------------------------------------------------------   
-  
-  method_df <- 
-    data.frame(method = model_relevel,
-               method_name = model_names)
-  
-  ### All Indexes
-  
-  indexS_df <- subm$index_df %>%
-    dplyr::rename(method = approach) %>%
-    dplyr::mutate(method = forcats::fct_relevel(method, model_relevel)) %>%
-    dplyr::left_join(., method_df, by = 'method')
-  
-  sub_index_plot <- 
-  index_base_plot + 
-    coord_cartesian(ylim = c(75, 350)) + 
-    geom_line(data = indexS_df,
-              aes(x = time_period, y = index, color = method, group = subm),
-              size = .4,
-              show.legend = FALSE) + 
-    facet_wrap(~method_name, ncol = 4) + 
-    scale_color_manual(name = 'Index Method',
-                       values = color_df$colorx[c(6,4,1,5,2, 7,3)],
-                       labels = model_names) + 
-    scale_x_continuous(breaks = seq(12, 108, by = 48),
-                       labels = paste0('Dec-', c(2014, 2018, 2022))) + 
-    geom_line(data = index_df %>%
-                dplyr::left_join(., method_df, by = 'method'),
-              aes(x = time_period, y = index, group = method), color = 'black') + 
-    ggtitle('Submarket Level Indexes', subtitle = "King County, WA")
-  
-  sub_index_plot 
-  dev.copy(device = png, 
-           filename = file.path(getwd(), 'papers', 'hpi_comp', 'figures', 'subm_indexes.png'), 
-           width = plotwidth, height = plotheight) 
-  dev.off()
-  
-  #### Volatility
-
-  volS_df <- subm$stl_df %>%
-    dplyr::mutate(method = forcats::fct_relevel(approach, model_relevel))
-    
-  volS_plot <- 
-    method_base_plot + 
-    geom_boxplot(data = volS_df, 
-                 aes(x = method, y = abs(remainder), fill = method),
-                 show.legend = FALSE,
-                 color = 'black') + 
-    scale_fill_manual(values = color_df$colorx,
-                      labels = model_names,
-                      name = '') +
-    ylab('Volatility \n (Remainder)') + 
-    coord_cartesian(ylim = c(0, 10)) + 
-    ggtitle('Submarket Index Volatility', 
-            subtitle = 'Remainder of Seasonal/Trend Decomposition')
-  
-  volS_plot
-  
-  dev.copy(device = png, 
-           filename = file.path(getwd(), 'papers', 'hpi_comp', 'figures', 'sub_vol.png'), 
-           width = plotwidth, height = plotheight) 
-  dev.off()
-  
- #### Revisions -----------------
-  
-  revS_df <- subm$rev_df %>%
-    dplyr::mutate(method = forcats::fct_relevel(method, model_relevel))
-  
-  revS_plot <-
-    method_base_plot + 
-    geom_bar(data = revS_df, 
-             aes(x = method, y = abs_mean, fill=method),
-             stat = 'identity',
-             show.legend = FALSE) + 
-    scale_fill_manual(values = color_df$colorx,
-                      labels = model_names) +
-    ylab('Mean Absolute Revision Level') +
-    theme(legend.position = 'none')
-  revS_plot
-  
-  dev.copy(device = png, 
-           filename = file.path(getwd(), 'papers', 'hpi_comp', 'figures', 'sub_rev.png'), 
-           width = plotwidth, height = plotheight) 
-  dev.off()
-  
- #### Predictive Accuracy ------------
-  
-  predS_df <- subm$abs_df %>%
-    as.data.frame()
-  
-  predS_sdf <- predS_df %>%
-    dplyr::group_by(method) %>%
-    dplyr::summarize(count = dplyr::n(),
-                     mdpe = median(error),
-                     mpe = mean(error),
-                     mdape = median(abs(error)),
-                     mape = mean(abs(error))) %>%
-    dplyr::mutate(method = as.factor(method)) %>%
-    dplyr::mutate(method = forcats::fct_relevel(method, model_relevel)) 
-  
-  predS_plot <- 
-  method_base_plot + 
-    geom_bar(data = pred_sdf,
-             aes(x = method, y = mape, color = method, fill = method),
-             alpha = .15,
-             show.legend = FALSE,
-             stat = 'identity') + 
-    geom_bar(data = predS_sdf,
-             aes(x = method, y = mape, color = method, fill = method),
-             stat = 'identity',
-             show.legend = FALSE) + 
-    coord_cartesian(ylim = c(.09, .12)) + 
-    scale_fill_manual(values = color_df$colorx)+
-    scale_color_manual(values = color_df$colorx) + 
-    ylab('Mean Absolute Predictive Error') + 
-    ggtitle('Submarket Predictive Error', subtitle = 'Prediction On Resale')
-  
-  predS_plot
-  
-  dev.copy(device = png, 
-           filename = file.path(getwd(), 'papers', 'hpi_comp', 'figures', 'subm_pred.png'), 
-           width = plotwidth, height = plotheight) 
-  dev.off()
-  
-  #### Assitive Errors ------------------------------------------
-  
-  relS_df <- subm$rel_df %>%
-    as.data.frame()
-  baseS_df <- relS_df %>%
-    dplyr::filter(type == 'base' & method == 'med') %>%
-    dplyr::mutate(method = 'base', class = 'benchmark')
-  relS_df <- dplyr::bind_rows(baseS_df,
-                              relS_df %>%
-                                dplyr::filter(type != 'base'))  
-  
-  relS_sdf <- relS_df %>%
-    dplyr::group_by(method) %>%
-    dplyr::summarize(count = dplyr::n(),
-                     mdpe = median(error),
-                     mpe = mean(error),
-                     mdape = median(abs(error)),
-                     mape = mean(abs(error)))
-  relS_sdf <- relS_sdf %>%
-    dplyr::filter(method != 'base') %>%
-    dplyr::mutate(method = as.factor(method)) %>%
-    dplyr::mutate(method = forcats::fct_relevel(method, model_relevel)) 
-  
-  relS_sdf
-  
-  astS_plot <- 
-    method_base_plot + 
-    geom_bar(data = ast_sdf,
-             aes(x = method, y = mape, color = method, fill = method),
-             alpha = .15,
-             show.legend = FALSE,
-             stat = 'identity') + 
-    geom_bar(data = relS_sdf,
-             aes(x = method, y = mape, color = method, fill = method),
-             stat = 'identity',
-             show.legend = FALSE) + 
-    coord_cartesian(ylim = c(.115, .16)) + 
-    scale_fill_manual(values = color_df$colorx)+
-    scale_color_manual(values = color_df$colorx) + 
-    ylab('Mean Absolute Predictive Error') + 
-    ggtitle('Submarket Predictive Error', subtitle = 'Prediction On Resale')
-  
-  astS_plot
-  
-  dev.copy(device = png, 
-           filename = file.path(getwd(), 'papers', 'hpi_comp', 'figures', 'subm_ast.png'), 
-           width = plotwidth, height = plotheight) 
-  dev.off()
-  
-  ### 
-  astS_sdf <- relS_df %>%
-    dplyr::group_by(method, submarket) %>%
-    dplyr::summarize(count = dplyr::n(),
-                     mdpe = median(error),
-                     mpe = mean(error),
-                     mdape = median(abs(error)),
-                     mape = mean(abs(error))) 
-  
-  ggplot(astS_sdf,
-         aes(x = count, y = mape, color = method)) + 
-    geom_point() + 
-    geom_smooth(se=FALSE)
-  
-  
+ 

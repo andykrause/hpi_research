@@ -26,7 +26,7 @@
   #sub_rawser <- read.csv(file = file.path(getwd(), 'data', exp, 
   #                                       'exp_nn_series_submarkets_local_results_py.csv'))
   sub_rawser <- read.csv(file = file.path(getwd(), 'data', exp, 
-                                          'exp_nn_series_submarkets_global_results_py.csv'))
+                                         'exp_nn_series_submarkets_global_results_py.csv'))
   
   
   # Read in the median index and series to get general structure of existing indexes

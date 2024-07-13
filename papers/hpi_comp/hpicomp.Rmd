@@ -26,17 +26,27 @@ editor_options:
 
 ### Abstract
 
-House price indexes are a widely used tool for understanding the aggregate movements in housing markets. They play an important role in decision-making by government bodies, federal and local, as well as individual market actors. While a robust collection of prior research on methods for index creation exist, the set of work that addresses fundamental questions of measuring index quality is more limited. In this work, we extend the prior criteria and metrics to include relative accuracy, volatility and local specificity. We illustrate our new criteria through an empirical example comparing two common approaches -- Repeat Sales and Hedonic -- against a novel Interpretable Random Forest (IRF) method.  We find that choosing the best index should consider the use case of the index combined with measurable objective qualities of the index itself. 
+House price indexes are a widely used tool for understanding the aggregate movements in housing markets. They play an important role in decision-making by government bodies, federal and local, as well as individual market actors. While a robust collection of prior research on methods for index creation exist, the set of work that addresses fundamental questions of measuring index quality is more limited. In this work, we extend the prior criteria and metrics to include assistive accuracy, volatility and local specificity. We illustrate our new criteria through an empirical example comparing a variety of common approaches -- Aggregation, Repeat Sales, Hedonic Time Dummy and Imputation -- as well as novel Neural Network Approach.  We find that no index provides the best performance on all metrics and that users should consider the purpose of the index, the available data and end user requirements along with more objective model performance metrics when choosing an index.  
 
 ## Introduction
 
 Since the seminal Bailey et al. (1963) study there has been considerable and sustained research effort put into comparing and improving competing methods for generating house price indexes.  Published work in this sub-field of housing economics is generally focused on one or more of four aims: 1) Comparison of model differences (Case et al 1991; Crone & Voith 1992; Meese and Wallace 1997; Nagaraja et al 2014; Bourassa et al 2016); 2) Identification and correction of estimation issues or problems (Abraham & Schauman 1991; Haurin & Henderschott 1991; Clapp et al 1992; Case et al 1997;  Steele & Goy 1997; Gatzlaff & Haurin 1997, 1998; Munneke & Slade 2000); 3) Creation of local or submarket indexes (Goodman 1978; Hill et al 1997; Gunterman et al 2016; Bogin et al 2019; Ahlfeldt et al 2023); and/or 4) Development of a new model or estimator (Case & Quigley 1991; Quigley 1995; Hill et al 1997; Englund et al. 1998, McMillen 2012; Bokhari & Geltner 2012; Bourassa et al 2016; Xu and Zhang 2022). 
 
-Research aimed at measuring the quality of house price indexes has received considerable less attention.  Part of this lack of work likely stems from the fact that a house price index is created to measure a phenomena without an observable ground truth -- the price or value movements of a given market -- and therefore is, under any method or approach, a proxy at best.  This inherent fact also means that any approach to measuring model quality necessarily comes with shortcomings and/or assumptions. In short, there is no perfect measuring stick for a house price index. 
+Research aimed at measuring the quality of house price indexes has received considerable less attention. Part of this lack of work likely stems from the fact that a house price index is usually created to measure a phenomena without an observable ground truth -- the price or value movements of a given market -- and therefore is, under any method or approach, a proxy at best.  This inherent fact also means that any approach to measuring model quality necessarily comes with shortcomings and/or assumptions. In short, there is no perfect measuring stick for a house price index. 
 
-In terms of house price creation, traditionally, house price indexes have been derived from highly interpretable (statistical) modeling approaches such as linear models.  Both the repeat sales and the hedonic approach -- the two most commonly published approaches (Hill 2012; MacGuire et al 2013) -- are generally linear regression-based models. Standard statistical models are a good fit for this task because the coefficient estimates are easily convertible into standardized price indexes. House price index generation is viewed as an inferential endeavor in which the attribution of the effects of time on market movements is sought, rather than a pure prediction problem. As a result, many of the rapidly growing set of machine learning algorithms -- e.g. support vector machines, random forests and neural networks -- have not been used in the production of price indexes due to the fact that they do not directly and/or easily attribute price impacts to the variables or features in the model. However, with the rise of interpretability methods (Ribiero et al. 2016; Doshi-Velez and Kim 2017; Molnar 2019), these 'black-box' models can be made explainable and suitable for a more diverse set of tasks. 
+In this work, we evaluate a suite of different methods for generating house price indexes against two classes of criteria; Development and Output.  Development criteria are those considerations that can and should be addressed prior to building an index.  They includes the data available, the explainability requirements and the generalization desires. Output criteria, on the the other hand, involve making quantitative assessment on the indexes and/or series of indexes that are created.  Together, Development and Output criteria can assist an index creator make a determination on the best available approach in their particular situation.  
 
-In this work we highlight the use of partial dependence -- a model-agnostic interpretability method (Molnar 2019) -- to generate house price indexes from a machine learning and inherently non-interpretable model. One of the major appeals of using a model-agnostic approach is that any underlying machine learning model class could be used on the data. In this work we use a random forest, one of the more common and intuitive machine learning models. However, this choice of model class is only for convenience, as a neural network, for example, could just as easily have been used. Along with an explanation of the method and examples, the results from the application of a model-agnostic interpretability method are compared to the more traditional repeat sales and hedonic model approaches. The findings suggest that the interpretable random forest (IRF) appraoch to house price generation is competitive with the standard approaches across some measure of index quality, but deficient in others. 
+Additionally, we compare the ability of the test set of index methods to perform at smaller geographies; a common desire for many house price index (HPI) use cases. Finally, to the set of existing index methods we add a novel approach -- an index developed with a neural network. 
+
+This paper proceeds by: 
+...
+
+
+<!-- In terms of house price index creation, traditionally, house price indexes have been derived from highly interpretable (statistical) modeling approaches such as linear models.  Both the repeat sales and the hedonic time dummy approach -- the two most commonly published approaches (Hill 2012; MacGuire et al 2013) -- are generally estimated with linear regression-based models. Standard statistical models are a good fit for this task because the coefficient estimates are easily convertible into standardized price indexes. House price index generation is viewed as an statistical inference endeavor in which the estimation of market movements for a (sub) population is sought using some sample, rather than a pure prediction problem like predicting a single home value. As a result, many of the rapidly growing set of machine learning algorithms -- e.g. support vector machines, random forests and neural networks -- have not been used in the production of price indexes due to the fact that they do not directly and/or easily attribute price impacts to the variables or features in the model. However, with the rise of interpretability methods (Ribiero et al. 2016; Doshi-Velez and Kim 2017; Molnar 2019), these 'black-box' models can be made explainable and suitable for a more diverse set of tasks.  -->
+
+
+
+<!-- In this work we highlight the use of partial dependence -- a model-agnostic interpretability method (Molnar 2019) -- to generate house price indexes from a machine learning and inherently non-interpretable model. One of the major appeals of using a model-agnostic approach is that any underlying machine learning model class could be used on the data. In this work we use a random forest, one of the more common and intuitive machine learning models. However, this choice of model class is only for convenience, as a neural network, for example, could just as easily have been used. Along with an explanation of the method and examples, the results from the application of a model-agnostic interpretability method are compared to the more traditional repeat sales and hedonic model approaches. The findings suggest that the interpretable random forest (IRF) appraoch to house price generation is competitive with the standard approaches across some measure of index quality, but deficient in others.  -->
 
 The remainder of this work is organized as follows:  Section two provides a literature review of existing criteria for evaluating house price indexes, followed by an explanation of the novel metrics we add.  Next, we offer a brief review of applying machine learning approaches to the task of house price indexing. Section three concludes with a discussion on using the interpretable random forest (IRF) approach to creating a house price index. In section four we discuss our three model specifications and the data -- from King County, Washington, USA -- that we use in our empirical analysis.  We then cover our results in section five; concluding with the paper with recommendations and details on the reproducility of this work.
 
@@ -135,7 +145,7 @@ Figure 1 illustrates example plots of an individual condition expectation (left 
 
 **Figure 1: Example of ICE and PD Plots**
 
-![](../figures/ice_example.png)\
+<!-- ![](../figures/ice_example.png)\ -->
 
 ### Conceptual Framework
 
@@ -151,7 +161,7 @@ In conceptualizing how an interpretable machine learning process could map onto 
 
 **Figure 2: Conceptual Model**
 
-![](../figures/process.png)\
+<!-- ![](../figures/process.png)\ -->
 
 &nbsp;
 &nbsp;
@@ -237,7 +247,7 @@ In addition to comparison on performance at the global (King County) level, we a
 
 **Figure 3: Study Area w/ Sales**
 
-![](../figures/kingmap.png)\
+<!-- ![](../figures/kingmap.png)\ -->
 
 &nbsp;
 
@@ -249,7 +259,7 @@ We begin by comparing the three approaches to index generation (Figure 4).  The 
 
 **Figure 4: County Level Indexes**
 
-![](../figures/countyindexes.png)\
+<!-- ![](../figures/countyindexes.png)\ -->
 
 Interestingly, the IRF index falls below the other two by 7-10 index points after the first year and generally holds that lower level for most of the study period, including similarly tracking the high price appreciations of early 2021.  During the next price runup (and subsequent fall) in 2022; however, the IRF method offers significantly reduced upward price trends. Finally, all three indexes end up nearly at the very same value for the end of 2022 -- an index of approximately 153.  Does this mean that the Hedonic and Repeat Sales approaches simply over-reacted in 2022, but not in 2021?  To help answer that question we'll use the various criteria of index quality discussed above. 
 
@@ -284,7 +294,7 @@ Additionally, Figure 4 shows us that during the periods of the most rapid price 
 
 **Figure 5: Absolute Accuracy over Time**
 
-![](../figures/pra_errors.png)\
+<!-- ![](../figures/pra_errors.png)\ -->
 
 #### Relative Accuracy
 
@@ -311,7 +321,7 @@ Examining the index biases over time, we see a similar trend to the Absolute Acc
 
 **Figure 6: Relative Accuracy over Time**
 
-![](../figures/hpa_errors.png)\
+<!-- ![](../figures/hpa_errors.png)\ -->
 
 #### Revision
 
