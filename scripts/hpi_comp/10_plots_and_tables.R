@@ -292,6 +292,36 @@
            width = plotwidth, height = plotheight) 
   dev.off()
   
+  #### Submarket Trend Plot -----------------------------
+  
+  trendS_plot <-   
+    ggplot() + 
+    theme_minimal() + 
+    theme(text=element_text(size = text_size),
+          legend.position = 'bottom') +
+    coord_cartesian(ylim = c(95, 325)) + 
+    #scale_x_continuous(breaks = seq(0, 120, by = 12),
+    #                   labels = month_labs) + 
+    geom_line(data = indexS_df,
+              aes(x = time_period, y = trend, color = method),
+              size = line_size/2)  + 
+    scale_color_manual(values = color_df$colorx,
+                       labels = model_names,
+                       name = 'Index Approach') +
+    ylab('Trend \n (w/o Seasonality and Noise)')  +
+    xlab('') + 
+    # ggtitle('Index Trend Comparisons') + 
+    theme(legend.position = 'bottom',
+          axis.text.x = element_blank()) + 
+    facet_wrap(~subm)
+  
+  trendS_plot
+  dev.copy(device = png, 
+           filename = file.path(getwd(), 'papers', 'hpi_comp', 'figures', 'trend_subm_comparison.png'), 
+           width = plotwidth, height = plotheight) 
+  dev.off()
+  
+  
  #### Seasonality --------------
   
   ## Prep Data
@@ -323,6 +353,9 @@
            filename = file.path(getwd(), 'papers', 'hpi_comp', 'figures', 'season_comparison.png'), 
            width = plotwidth, height = plotheight) 
   dev.off()
+  
+  ## Trend by subdivision
+  
   
  #### Volatility Plot ----------
   

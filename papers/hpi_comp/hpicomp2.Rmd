@@ -14,7 +14,89 @@ editor_options:
 
 ### Abstract
 
-This work refines the current typology
+This work refines the current typology of house price indexes by dividing multiple popular and two novel methods into their fundamental trend extraction techniques.  We then evaluate these methods by a collection of metrics aimed at measuring index volatility, revision and accuracy.  We find that both at a county and at a smaller submarket level index performance varies widely depending on the extraction method and the evaluation metrics.  Overall, a traditional hedonic time extraction approach offers the most consistent performance across all metrics, though rarely the best in any one. 
+
+### Introduction
+
+Since the seminal Bailey et al. (1963) study there has been considerable and sustained research effort put into comparing and improving competing methods for generating house price indexes.  Published work in this sub-field of housing economics is generally focused on one or more of four aims: 1) Comparison of model differences (Case et al 1991; Crone & Voith 1992; Meese and Wallace 1997; Nagaraja et al 2014; Bourassa et al 2016); 2) Identification and correction of estimation issues or problems (Abraham & Schauman 1991; Haurin & Henderschott 1991; Clapp et al 1992; Case et al 1997;  Steele & Goy 1997; Gatzlaff & Haurin 1997, 1998; Munneke & Slade 2000); 3) Creation of local or submarket indexes (Goodman 1978; Hill et al 1997; Gunterman et al 2016; Bogin et al 2019; Ahlfeldt et al 2023); and/or 4) Development of a new model or estimator (Case & Quigley 1991; Quigley 1995; Hill et al 1997; Englund et al. 1998, McMillen 2012; Bokhari & Geltner 2012; Bourassa et al 2016; Xu and Zhang 2022). 
+
+In the comparative work, methods are usually grouped by the type of data they use -- repeat sales (cit), all sales with home attributes (cit) or tax value ratios (cit) -- and/or by the algorithm used to fit the model -- OLS vs xxx vs yyy (cit).  We propose that grouping home price index by the fundamental method of trend extraction is a preferred categorization strategy because it most closely maps to the generalization ability of the index. More specifically, we split methods into aggregration (AGG), trained model extraction (TME) and imputation (IMP).  
+
+Additionally, research aimed at measuring the quality of house price indexes has received considerable less attention that the four main sets of literature noted above: 1) Comparison; 2) Issue identification; 3) Submarketing; and 4) New estimators. Part of this lack of work likely stems from the fact that a house price index is usually created to measure a phenomena without an observable ground truth -- the price or value movements of a given market -- and therefore is, under any method or approach, a proxy at best.  This inherent fact also means that any approach to measuring model quality necessarily comes with shortcomings and/or assumptions. In short, there is no perfect measuring stick for a house price index. 
+
+In this work, we evaluate a suite of different methods for generating house price indexes against two classes of criteria; Development and Output.  Development criteria are those considerations that can and should be addressed prior to building an index.  They includes the data available, the explainability requirements and the generalization desires. Output criteria, on the the other hand, involve making quantitative assessment on the indexes and/or series of indexes that are created.  Together, Development and Output criteria can assist an index creator make a determination on the best available approach in their particular situation.  
+
+Additionally, we compare the ability of the test set of index methods to perform at smaller geographies; a common desire for many house price index (HPI) use cases. Finally, to the set of existing index methods we add two novel approaches -- an TME index developed with a neural network and an imputation (IMP) method developed with a random forest. 
+
+## Index Method Typology
+
+The existing work tends to compare/contrast methods based on the specifics of the algorithm used.  The most common are comparative studies between repeat sales and hedonic methods (cit) and/or between various implementation deviations of these two methods such as robust statistical modeling techniques (cit).
+
+When looking at the possible approaches to creating house price indexes, we find that a two level, hierarchical taxonomy more appropriately captures explains the differences.  In this taxonomy each house price index has a 1) Method; and 2) Implementation.  The *Method* denotes the broad mathematical approach to deriving measures of price changes over time, the *Implentation* addresses the finer details of the approach such as the  statistical technique, the hyperparameters and or the data used. 
+
+In reviewing the existing summarizing work (ex. Hill, cit), we find that there are three primaries methods to developing house price indexes: 1) Aggregate, Trained Model Extraction and Imputation. 
+
+* Aggregate (AGG): Aggregate price/value observations by time period and take simple distributional measures for each aggregated period
+* Trained Model Extraction (TME): Train a stastistical or machine learning model on a price/value observations and extract from the trained model estimates of the model measures of the change in values/prices over the time aggregates. 
+* Imputation (IMP): Use a model or process to create hypothetical prices/values (impute), and then use an aggregation approach to extract changes over the temporal periods. 
+
+The divisions between these approaches may not always be perfect as, for example, one could argue that the imputation approach is simply another way of employing the aggregation method.  We've separated them this way due to both the existing literature and the differences in what the various methods allow a user to generalize to, this second factor being the primary motivating factor in our taxonomy. 
+
+Example of each:
+
+* Agg:  Computing the median sale price per month and converting into an index. 
+* TME:  Fitting a regression model with monthly time dummy variables and using the beta coefficients of the time variables to create an index
+* Imp:  Fitting the regression model from the TME example, but using it to predict the value of all homes in the area for each time period and then computing the median value of the entire universe each month.  
+
+Within these three there are many possible implementations given the variety of different choices that can be made about statistical and/or machine learning modeling techniques, hyperparameters and data. We do not attempt to categorize them all in this paper, but do develop a few examples within each method in the empirical section of this paper to highlight their differences. 
+
+## Evaluating Indexes
+
+In the existing work, three general criteria have been applied to evaluating house price indexes; one based on inputs and estimation method and two on outputs.  The input- and method- based criterion assesses the ease of construction. This question of the constructability of a house price index can be divided into two sub-questions or criteria: 1) Ease of data collection; and 2) Simplicity of Model or Estimator.  
+
+The first, ease of data, reduces to a question of the availability of granular sales and home attribute data. Under this criteria, the easiest index to create is one that relies only on aggregated prices, such as tracking the mean or the median of observed prices in a given market over a given time period.  This results in simplistic mean or median value indexes; approaches that are often used as baselines in comparative work (ex. Goh et al 2012). Next are indexes based on repeat transaction of the same home.  Repeat sales are appealing as they solve some of the constant quality issues that fully aggregated indexes cannot and they only require granular sales data -- the sale price, the sale data and a unique home identifier such as address -- and not home attributes.  Finally, we have a wide variety of approaches, broadly characterized in the literature as hedonic methods (Hill 2013) that require both transaction and home attribute data for all transactions. These hedonic methods present the heaviest data collection burden of the three. 
+
+The second criteria under 'constructability' is the complexity of the model estimator itself.  Again, a fully aggregated approach like a median or mean offers the lowest barrier as they include taking a mean or median. Traditionally, repeat sales models (Case and Shiller, 1989) utilized basic linear models (OLS) which are straight-forward to both create and understand.  More recent work (Bourassa et al 2016) has developed more advanced or robust approaches to repeat sale estimation but they are still rooted in linear regressor.  The broad class of 'hedonic' approach again offer the most complexity in estimation.  Within this class of model, constructability can vary widely from simple in the case of a linear hedonic model with dummy estimators (ex. Hill and Trojanek 2022) to very complex method derives from neural network estimators (ex. Xu and Zhang 2023). Hedonic estimators also present complexity in the form of the choice of model specification (independent variables), structure and, in the case of machine learning-based approaches, the selection of hyperparameters. Together, all of the these decision about the model combined with the potential for greatly increased compute times as the methodology becomes more specialized means that hedonic approach present the highest barriers to constructability.  
+
+#### Output-based metrics
+
+Index accuracy is the most common output metric discussed in the literature. As noted above, there is no exact ground truth of the movement of aggregate house prices in a region so any approach here is a proxy, with limitations. The favored approach in the existing literature is to test the ability of an index to predict the second sale of repeat transaction pair (Bogin et al 2019).  This approach takes the first sale of a pair, indexes that price forward by the given index to the date of the repeat transaction and then computes an error measure where the error is the difference in the predicted value and the actual price of the second sale in the pair.  When measuring the error -- or the difference between predicted and actual second sale -- we use log metrics due to their ability to avoid denominator bias and the skewness in possible error metrics that results (Tofallis 2015).  The formula for calculating errors is: 
+
+$Error_i = log(price_{i, pred}) - log(price_{i, actual})$
+
+This is an appealing approach as individual error metrics at the home level allow for computation of standard metrics like root mean squared error (RMSE), mean absolute percentage error (MAPE) and others that are common in the evaluation of Automated Valuation Models (AVMs), other hedonic pricing models and many/most regression-based machine learning tasks(Steurer et al 2021).  
+
+A downfall of this particular approach to accuracy; however, is that it relies solely on repeat transactions. Repeat transactions are not a random sample of all homes in the market nor are they are random sample even of those homes that sell (Hill 2013).  Additionally, repeat transactions themselves can be subject to violations of constant quality in the case of renovation and/or depreciation (Steele and Gray 1997; Novak and Smith 2020). 
+
+A second approach to measure the objective qualities of an index looks at the revision of an index over time (Clapham et al 2006, Deng and Quigley 2008, Van de Minne et al 2020, Sayag et al 2022).  Revisions occurs when the re-estimation of the index over time results in changes to prior estimates. For example, consider an index with a value of 134.2 in August of 2023. If when the index is re-estimated in September and the August value changes to 134.4, that is a revision of 0.2 points.  Revision, particularly those that are substantial can create harmful impacts on users of indices in applied and/or policy perspectives.  It is generally accepted that index revision should be minimized (Van de Minne et al 2020).
+
+In summary, the existing work on measuring index quality uses three criteria to evaluation house price indexes: 1) a measure of the ease of constructability; 2) a measure of accuracy in the form of predicting the second of a repeat transaction; and 3) a measure of the extent to which the index values revise as a series of indexes are created over time.  We use this existing framework as a basis for our extensions discussed in the section below. 
+
+### Extending The Measure of Index Evaluation
+
+One perspective missing from the current framework for index evaluation is that of the end use or user. Put another way, the purpose to which the index is being put should be considered.  To bring this perspective we add three addition evaluation criteria to the existing three: 1) Relative predictive accuracy improvement; 2) Volatility; 3) Local specificity.
+
+As noted above, the use of repeat transactions as the benchmark for predictive accuracy suffers from many of the same limitations as repeat transaction models -- namely sample selection and constant quality issues stemming from renovation and/or depreciation.  This  repeat transactions-based approach also ignores one of the growing uses to which house price indexes are employed, that of supporting automated home pricing exercises. As an example, some approaches to the construction of automated valuation models (AVMs) will first time-adjust all sales in the training data (the target values) to the price as if the home sold at the time of the AVM training. By doing so a model can focus on distinguishing the cross-section variation between homes while relying on an outside model to make temporal adjustments.  
+
+Considering the growth of AVMs in valuing homes, we offer an alternative to the commonly used repeat transaction-based accuracy methods.  In this alternative we compute the relative accuracy improvement of an AVM using an index for time adjustment over that of a baseline AVM that has no temporal adjustments or variables at all. This is a two-step process in which first a baseline AVM is estimated in which time is completely ignored; there are no temporal variables.  We measure the predictive accuracy of this model as the baseline.  We then time-adjusted all sale prices in the data to the valuation date of the AVM and re-estimate it, again measuring the predictive ability.  The relative change in accuracy between the baseline model (no time controls) and the model with index-adjusted sale prices represents a comparative measure of the index's ability to improve a valuation model.  This offers another measure of the index's accuracy where accuracy is a proxy for its ability to track the actual (unobserved) movements in the market. We term this 'Relative Accuracy' measurement as opposed to the 'Absolute Accuracy' measurement that the repeat-transaction based approach provides. 
+
+Next, to the extent that home price indexes are meant to represent an estimate of the aggregate movement of all home values in a region or market, a desirable characteristic is that the index is not overly noisy.  'Noisy' here means that that index 'chases' or is overly impacted by one or a single data points that are likely not representative of the underlying global phenomenon.  In the machine learning domain this is often represented by a model that has great fit on in-sample data but has a large reduction in accuracy when applied to new, out of sample data. Likewise, with an index, a high noise-to-trend ratio could be indicative of the same problem.   
+
+In short, what is desirable is an index that tracks the market without fluctuating widely above and below the actual trend each period.  In this paper, volatility is measured as the standard deviations of period-to-period changes in a rolling four-period time span.
+
+$V = sd(D_{t, t+1, t+2})$ where $D = index_k - index_{k-1}$
+
+This is an appealing metric as consistent, monotonic changes over a four month span -- the three measures of period changes -- will produce very low standard deviations.  On the contrary, wildly fluctuating indexes with irregular directionally movements will produce high volatility measures.
+
+In addition to the fundamental, estimator-based issues stemming from volatility, a highly noisy index is also hard to rationalize to users of indexes, particularly those looking to make important financial decisions based on the (perceived) market changes suggested by the index.  Simply put, it is hard to build trust with users when indexes have a high noise-to-signal ratio. 
+
+Conversely, we shouldn't look to fully minimize volatility either as, taken to an extreme, a perfectly flat index would optimize volatility reduction but at the cost of being useful at all. It is a delicate balance.  In this work, we measure volatility as the standard deviation of a rolling time window (3 months in this case), but look at the comparison only relatively.  We balance off volatility against other measure in a subjective, criteria-ranking approach not as an objective measure to be optimized.  As a result, it operates somewhat like the 'constructability' criteria -- something that should be taken into account by developers and users, but not a criteria to necessarily be optimized against.  
+
+Finally, prior work has established the need to derive indexes for small geographic regions or other local definitions of submarkets (Haurin et al 1991; Ren et al 2017). Our third new measure of index quality is the relative change in the above metrics when the index is applied to smaller subregions within the larger market. We term this Local Specificity.  
+
+In the evaluations that follow we will focus on four objective measures of house price index performance: 1) Absolute accuracy via repeat transactions; 2) Relative accuracy via AVM improvement; 3) Revision; and 4) Volatility.  With then look at the relative differences of accuracy measures at global and local (to our data) levels in order to measure the Local Specificity or ability of the index to discern local trends while also maintain overall predictive ability. In the discussion section we also layer in considerations of the  'constructability' dimension on indexes to highlight some of the tradeoffs between ease of creation and objective model results. 
+
+
 
 Goals of this paper:
 
@@ -26,19 +108,7 @@ Goals of this paper:
 
 
 
-## Typology
 
-Class - Method - Implementation
-
-* Aggregate
-  * Raw (median or mean)
-  * Aggregate ($/sf)
-* Mathematical/Statistical
-  * Control Method
-  * Extraction Method
-* Imputation
-  * Partial (Using Sales a la Hill)
-  * Full. (ZHVI)
 
 Each has an implementation method as well.
 * Chaining
@@ -105,13 +175,35 @@ Continuum
 
 * Start with 10 year index comparison of the approaches.  Talk through combination of sample and algorithm on results. 
 
+![](~/projects/hpi_research/papers/hpi_comp/figures/med_index.png)
+![](~/projects/hpi_research/papers/hpi_comp/figures/psf_indexes.png)
+![](~/projects/hpi_research/papers/hpi_comp/figures/tme_indexes.png)
+![](~/projects/hpi_research/papers/hpi_comp/figures/imp_indexes.png)
+![](~/projects/hpi_research/papers/hpi_comp/figures/all_indexes.png)
+![](~/projects/hpi_research/papers/hpi_comp/figures/all_indexeszoom.png)
+![](~/projects/hpi_research/papers/hpi_comp/figures/subm_indexes.png)
+
 ### Volatility
+![](~/projects/hpi_research/papers/hpi_comp/figures/trend_comparison.png)
+
+![](~/projects/hpi_research/papers/hpi_comp/figures/trend_subm_comparison.png)
+
+![](~/projects/hpi_research/papers/hpi_comp/figures/season_comparison.png)
+![](~/projects/hpi_research/papers/hpi_comp/figures/vol_comparison.png)
 
 ### Concept of a Series
 
 ### Revision
 
+![](~/projects/hpi_research/papers/hpi_comp/figures/rev_comparison.png)
+
 ### Accuracy (two kinds)
+
+![](~/projects/hpi_research/papers/hpi_comp/figures/predacc_comparison.png)
+![](~/projects/hpi_research/papers/hpi_comp/figures/asterror_comparison.png)
+
+
+![](~/projects/hpi_research/papers/hpi_comp/figures/error_comparison.png)
 
 ## Robustness checks
 
