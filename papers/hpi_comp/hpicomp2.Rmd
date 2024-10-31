@@ -64,7 +64,7 @@ Index accuracy is the most common output metric discussed in the literature. As 
 
 $Error_i = log(price_{i, pred}) - log(price_{i, actual})$
 
-This is an appealing approach as individual error metrics at the home level allow for computation of standard metrics like root mean squared error (RMSE), mean absolute percentage error (MAPE) and others that are common in the evaluation of Automated Valuation Models (AVMs), other hedonic pricing models and many/most regression-based machine learning tasks(Steurer et al 2021).  
+This is an appealing approach as individual error metrics at the home level allow for computation of standard metrics like root mean squared error (RMSE), mean absolute percentage error (MAPE) and others that are common in the evaluation of Automated Valuation Models (AVMs), other hedonic pricing models and many/most regression-based machine learning tasks (Steurer et al 2021).  
 
 A downfall of this particular approach to accuracy; however, is that it relies solely on repeat transactions. Repeat transactions are not a random sample of all homes in the market nor are they are random sample even of those homes that sell (Hill 2013).  Additionally, repeat transactions themselves can be subject to violations of constant quality in the case of renovation and/or depreciation (Steele and Gray 1997; Novak and Smith 2020). 
 
@@ -76,25 +76,83 @@ In summary, the existing work on measuring index quality uses three criteria to 
 
 One perspective missing from the current framework for index evaluation is that of the end use or user. Put another way, the purpose to which the index is being put should be considered.  To bring this perspective we add three addition evaluation criteria to the existing three: 1) Relative predictive accuracy improvement; 2) Volatility; 3) Local specificity.
 
-As noted above, the use of repeat transactions as the benchmark for predictive accuracy suffers from many of the same limitations as repeat transaction models -- namely sample selection and constant quality issues stemming from renovation and/or depreciation.  This  repeat transactions-based approach also ignores one of the growing uses to which house price indexes are employed, that of supporting automated home pricing exercises. As an example, some approaches to the construction of automated valuation models (AVMs) will first time-adjust all sales in the training data (the target values) to the price as if the home sold at the time of the AVM training. By doing so a model can focus on distinguishing the cross-section variation between homes while relying on an outside model to make temporal adjustments.  
+As noted above, the use of repeat transactions as the benchmark for predictive accuracy suffers from many of the same limitations as repeat transaction models -- namely sample selection and constant quality issues stemming from renovation and/or depreciation.  This repeat transactions-based approach also ignores one of the growing uses to which house price indexes are employed, that of supporting automated home pricing exercises. As an example, some approaches to the construction of automated valuation models (AVMs) will first time-adjust all sales in the training data (the target values) to the price as if the home sold at the time of the AVM training. By doing so a model can focus on distinguishing the cross-section variation between homes while relying on an outside model to make temporal adjustments.  
 
 Considering the growth of AVMs in valuing homes, we offer an alternative to the commonly used repeat transaction-based accuracy methods.  In this alternative we compute the relative accuracy improvement of an AVM using an index for time adjustment over that of a baseline AVM that has no temporal adjustments or variables at all. This is a two-step process in which first a baseline AVM is estimated in which time is completely ignored; there are no temporal variables.  We measure the predictive accuracy of this model as the baseline.  We then time-adjusted all sale prices in the data to the valuation date of the AVM and re-estimate it, again measuring the predictive ability.  The relative change in accuracy between the baseline model (no time controls) and the model with index-adjusted sale prices represents a comparative measure of the index's ability to improve a valuation model.  This offers another measure of the index's accuracy where accuracy is a proxy for its ability to track the actual (unobserved) movements in the market. We term this 'Relative Accuracy' measurement as opposed to the 'Absolute Accuracy' measurement that the repeat-transaction based approach provides. 
 
 Next, to the extent that home price indexes are meant to represent an estimate of the aggregate movement of all home values in a region or market, a desirable characteristic is that the index is not overly noisy.  'Noisy' here means that that index 'chases' or is overly impacted by one or a single data points that are likely not representative of the underlying global phenomenon.  In the machine learning domain this is often represented by a model that has great fit on in-sample data but has a large reduction in accuracy when applied to new, out of sample data. Likewise, with an index, a high noise-to-trend ratio could be indicative of the same problem.   
 
-In short, what is desirable is an index that tracks the market without fluctuating widely above and below the actual trend each period.  In this paper, volatility is measured as the standard deviations of period-to-period changes in a rolling four-period time span.
-
-$V = sd(D_{t, t+1, t+2})$ where $D = index_k - index_{k-1}$
-
-This is an appealing metric as consistent, monotonic changes over a four month span -- the three measures of period changes -- will produce very low standard deviations.  On the contrary, wildly fluctuating indexes with irregular directionally movements will produce high volatility measures.
+In short, what is desirable is an index that tracks the market without fluctuating widely above and below the actual trend each period.  To measure volatility we use a Seasonal and Trend decomposition using Loess (STL) approach (Cleveland et al 1990).  An STL will extract a long term temporal trend, a seasonal factor and the residuals remaining from the trend and seasonal factors. We treat the residuals from the STL decomposition as the measure of volatility.  We find this approach to be a compelling fit for house price indexes do to the prevalence of both non-linear trends over years and fairly consistent seasonal trends within years.  
 
 In addition to the fundamental, estimator-based issues stemming from volatility, a highly noisy index is also hard to rationalize to users of indexes, particularly those looking to make important financial decisions based on the (perceived) market changes suggested by the index.  Simply put, it is hard to build trust with users when indexes have a high noise-to-signal ratio. 
-
-Conversely, we shouldn't look to fully minimize volatility either as, taken to an extreme, a perfectly flat index would optimize volatility reduction but at the cost of being useful at all. It is a delicate balance.  In this work, we measure volatility as the standard deviation of a rolling time window (3 months in this case), but look at the comparison only relatively.  We balance off volatility against other measure in a subjective, criteria-ranking approach not as an objective measure to be optimized.  As a result, it operates somewhat like the 'constructability' criteria -- something that should be taken into account by developers and users, but not a criteria to necessarily be optimized against.  
 
 Finally, prior work has established the need to derive indexes for small geographic regions or other local definitions of submarkets (Haurin et al 1991; Ren et al 2017). Our third new measure of index quality is the relative change in the above metrics when the index is applied to smaller subregions within the larger market. We term this Local Specificity.  
 
 In the evaluations that follow we will focus on four objective measures of house price index performance: 1) Absolute accuracy via repeat transactions; 2) Relative accuracy via AVM improvement; 3) Revision; and 4) Volatility.  With then look at the relative differences of accuracy measures at global and local (to our data) levels in order to measure the Local Specificity or ability of the index to discern local trends while also maintain overall predictive ability. In the discussion section we also layer in considerations of the  'constructability' dimension on indexes to highlight some of the tradeoffs between ease of creation and objective model results. 
+
+## Emprical Tests
+
+In this section, we describe the data used in the empirical tests that follow as well as the particular model specifications employed.  As part of the data discussion, we describe the geographic subsetting employed to provide local tests as well as the county-wide global analyses.
+
+### Data
+
+The data for this study originate from the King County (WA) Assessor. All transactions of single family and townhome properties within the county during the January 2018 through December 2023 period are included.  The data are found in the [`kingCoData` R package](https://www.github.com/andykrause/kingCoData) and can be freely downloaded at one of the author's Github pages as well as on Kaggle. The transactions were filtered to keep only arms-length transactions based on the County's instrument, sale reason and warning codes.  Additionally, any sale that sold more than once and underwent a major renovation between sales was removed as these transactions violate the constant quality assumptions made in the repeat sales models estimated below. Finally, a very small number of outlying observations -- those with sales under $150,000 and over $10,000,000 were removed.
+The data includes the following information for all 150,876 transactions remainder after the filtering applied above.
+
+&nbsp;
+
+**Table 1: Data Fields**
+
+| Field Name | Type | Example | Description |
+| :----- | :-----: | :-----: | :------------------------- |
+| pinx   | chr  | ..0007600046  | Tax assessor parcel identification number |
+| sale_id  | chr | 2021..2621   | Unique sale identifier   |
+| sale_price  | integer  | 308900   | Sale price  |
+| sale_date  | Date   | 2021-02-22   | Date of sale   |
+| use_type  | factor  | sfr   | Structure type   |
+| area  | factor  | 15   | Tax assessor defined neighborhood or area   |
+| lot_sf  | integer  | 5160   | Size of lot in square feet  |
+| wfnt  | binary   | 1  | Is the property waterfront?  |
+| bldg_grade  | integer  | 8 | Structure building quality  |
+| tot_sf  | integer  | 2200   | Total finished square feet of the home |
+| beds  | integer  | 3   | Number of bedrooms |
+| baths  | numeric   |  2.5 | Number of bathrooms   |
+| age  | integer   | 100 | Age of home   |
+| eff_age  | integer   | 12   | Years since major renovation   |
+| longitude  | numeric   | -122.30254   | Longitude  |
+| latitude  | numeric   | 47.60391  | Latitude  |
+
+Within the data, there are 13,697 sale-resale pairs. This set of repeat transactions is limited to those which have at least a one-year span between the two sales. This constraint is applied to avoid potential home flips, which more often than not violate constant quality assumptions (Steele and Goy 1997; Clapp and Giacotto 1999).
+
+In addition to comparison on performance at the global (King County) level, we also break the data into 19 submarkets (Figure 1).  These submarkets are based the King County Assessor's 95 major residential tax assessment zones.  Using combinations of tax assessment zones is preferable to common disaggregating regions such as Zip Codes as the tax assessment zones are relatively balanced in total housing unit counts and purposefully constructed to follow local housing submarket boundaries.
+
+&nbsp;
+
+**Figure 1: Study Area w/ Sales**
+
+![](~/projects/hpi_research/papers/hpi_comp/figures/kingmap.png)
+
+&nbsp;
+
+### Models
+
+* Agg (2)
+* TME (3)
+* Imp (4)
+
+## Results
+
+**Figure 2: Median Price (Agg) Index**
+
+![](~/projects/hpi_research/papers/hpi_comp/figures/med_index.png)
+
+## Discussion
+
+
+
+------------
+------------
+
 
 
 
@@ -216,4 +274,4 @@ Continuum
 * Evaluate indexes based on your goal
 * 
 
-
+Cleveland, R. B., Cleveland, W. S., McRae, J. E., & Terpenning, I. J. (1990). STL: A seasonal-trend decomposition procedure based on loess. Journal of Official Statistics, 6(1), 3–33. http://bit.ly/stl1990
