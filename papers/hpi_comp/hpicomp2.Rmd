@@ -136,15 +136,54 @@ In addition to comparison on performance at the global (King County) level, we a
 
 ### Models
 
-* Agg (2)
-* TME (3)
-* Imp (4)
+In this study we compare seven different approaches to creating house price indexes, two from the aggregate (AGG) class, three using trained model extraction (TME) and two with imputation (IMP).  We evaluate each of these models on the four metric-based evaluation criteria discussed above, plus local specificity.  A comparison of contructability is saved for the discussion section. 
+
+#### Aggregate (AGG) Implementations
+
+In the aggregate method we build and test two implementations; 1) Median Sales Price (MED) and 2) Median Sales Price per Square Foot (PSF). These models are as simple as they sound.  The median sale price (MED) implementation simply takes the median of the sale price per period and convert this to an index by 
+
+<< insert formula>>.  
+
+The second aggregation implementation conditions the sales price by home size, creating an index in the same manner, but instead of using raw home sale price, we use the price per square footage of the home.  
+
+#### Trained Model Extraction (TME) Implementations 
+
+* Repeat Sales
+
+Many implementations of repeat sales models implement Case and Shiller's (1989) three stage weighted approach that provides greater weight to sale pairs with shorter holding periods.  Work by Steele and Goy (1997) suggest that this may be a biasing factor as shorter holds are often less representative of standard home purchases and resales as the initial sale is more likely to be an opportune buyer.  As a result of this and of work by Bourassa et al (2013), we do not weight direct by holding period length but, again, opt for a robust regression approach to help moderate any influence from outlying observation and/or changes to quality between sales that was not caught in the data preparation stage. Here, too, the `robustbase` R package is used with an MM-estimate with a bi-square redescending score function (Maechler et al 2019). The standard formulation of the repeat sales model with a logged dependent variable:
+
+$log(y_{it})-log(y_{is}) = \delta_2(D_{2,it} - D_{2,is}) + ... + \delta_\tau(D_{\tau,it} - D_{\tau,is} ) + u_{it} - u_{is}$
+
+where $y_{it}$ is the resale, $y_{is}$ is the initial sale and the $D_{\tau,i}$s are the temporal period dummies, -1 for the period of the first sale, 1 for the period of the second sale and 0 for all others.
+
+* OLS w/Time Dummies
+
+Model specification  is: 
+
+$log(P) = f(S, L, T)$
+
+where $P$ is the sale price, $S$ are structural features -- home size, lot size, bedrooms, baths, quality and use type -- of the home, $L$ are locational features -- latitude and longitude -- and $T$ are temporal features. The temporal features in the hedonic model are treated as monthly dummy variables instead of a numeric vector as in the random forest.  This allows the hedonic model to identify non-monotonic changes in prices over time -- an ability that would not be possible if time were treated as an integer variable.
+
+Following the advice of Bourassa et al (2016), we specify a robust regression to help minimize the impact of any outliers or data errors that have avoided filtering.  Specifically, I use the `robustbase` R package to estimate a MM-estimator with a bi-square redescending score function (Maechler et al 2019).
+
+* Neural Network
+
+*<<HERE on 10/31>>*
+
+#### Imputation (IMP) Implementations
+
+* OLS
+* RF
 
 ## Results
 
-**Figure 2: Median Price (Agg) Index**
+**Figure 2: Comparison of 10-Year Indexes**
 
-![](~/projects/hpi_research/papers/hpi_comp/figures/med_index.png)
+![](~/projects/hpi_research/papers/hpi_comp/figures/all_indexes.png)
+
+**Figure 3: Comparison of 10-Year Indexes: 2020 to 2023**
+
+![](~/projects/hpi_research/papers/hpi_comp/figures/all_indexeszoom.png)
 
 ## Discussion
 
@@ -156,122 +195,122 @@ In addition to comparison on performance at the global (King County) level, we a
 
 
 
-Goals of this paper:
+<!-- Goals of this paper: -->
 
-* Refine the current typology of HPIs based on their fundamental trend extraction technique
-* Test different classes, including by sample
-* Add some ML options to the mix
-* Create multi-criteria evaluation framework
-* Present data and code (open source) for researchers
-
-
+<!-- * Refine the current typology of HPIs based on their fundamental trend extraction technique -->
+<!-- * Test different classes, including by sample -->
+<!-- * Add some ML options to the mix -->
+<!-- * Create multi-criteria evaluation framework -->
+<!-- * Present data and code (open source) for researchers -->
 
 
 
-Each has an implementation method as well.
-* Chaining
-* Index creation
-* Statistical estimators -- base, robust, QR
-* Algorithmic choice -- LM vs NN for Math, Any AVM for Imputation
-* Coefficient extraction -- Chaining, Single statistical model, Post Hoc explainable method for ML
-
-## Outline
-
-Show aggregate index on median prices.
-
-Why do we create indexes?  
-* Primary: We don't believe that aggregate indexes control for the sample of homes that sell.
-* Secondary: There is noise in the observed data, how do we better generalize (bigger problem for small samples)
-
-What questions are we trying to answer?
-
-* What was the median home sale price?  -- agg
-* How have prices/values moved for any given home?  -- index
- ---- But which sample of homes?
- ------ All sold homes? -- making comparable adjustments
- ------ All homes? -- tracking stock
- ------ Some special subset of homes -- tracking a portfolio
- ------ A specific, individual home --- a porfolio of 1
- 
-To the extent that samples differ between what sells and what exists, the choice of HPI method should be driven
-by the question you are attemping to answer
 
 
-Continuum
+<!-- Each has an implementation method as well. -->
+<!-- * Chaining -->
+<!-- * Index creation -->
+<!-- * Statistical estimators -- base, robust, QR -->
+<!-- * Algorithmic choice -- LM vs NN for Math, Any AVM for Imputation -->
+<!-- * Coefficient extraction -- Chaining, Single statistical model, Post Hoc explainable method for ML -->
 
-* Pure observed sold price changes -- Agg
-* Observed with controls -- $ normalized by some sample features (ex. PPSF)
+<!-- ## Outline -->
 
-* All homes that sold twice -- RT
-  -- Also looks to control for possible unobserved features in the data
+<!-- Show aggregate index on median prices. -->
 
-* All homes that sold 
-  -- In the respective periods:  Hed Ind/Chained, NN
-  -- During the entire time period: Hed Imp w/sales
+<!-- Why do we create indexes?   -->
+<!-- * Primary: We don't believe that aggregate indexes control for the sample of homes that sell. -->
+<!-- * Secondary: There is noise in the observed data, how do we better generalize (bigger problem for small samples) -->
 
-* All homes -- Hedonic Imputation w/Universe
+<!-- What questions are we trying to answer? -->
 
-## Lit Review
+<!-- * What was the median home sale price?  -- agg -->
+<!-- * How have prices/values moved for any given home?  -- index -->
+<!--  ---- But which sample of homes? -->
+<!--  ------ All sold homes? -- making comparable adjustments -->
+<!--  ------ All homes? -- tracking stock -->
+<!--  ------ Some special subset of homes -- tracking a portfolio -->
+<!--  ------ A specific, individual home --- a porfolio of 1 -->
 
-   * Taxonomy
-   * Comparisons / Evaluations
-          * Are they different? (Samples -- RT vs Uni...H&T)
-          * Volatility
-          * Robustness (Hill and Trojanek 2022)
-          * Revisions (Silverstein 2014; VanDeMinner 2020)
-          * Accuracy
-            * Abs (Nagaraja)
-            * Rel (new)
-
-## Methods Tests
-
-## Eval Methods
-
-## Analysis
-
-### Index comparison
-
-* Start with 10 year index comparison of the approaches.  Talk through combination of sample and algorithm on results. 
-
-![](~/projects/hpi_research/papers/hpi_comp/figures/med_index.png)
-![](~/projects/hpi_research/papers/hpi_comp/figures/psf_indexes.png)
-![](~/projects/hpi_research/papers/hpi_comp/figures/tme_indexes.png)
-![](~/projects/hpi_research/papers/hpi_comp/figures/imp_indexes.png)
-![](~/projects/hpi_research/papers/hpi_comp/figures/all_indexes.png)
-![](~/projects/hpi_research/papers/hpi_comp/figures/all_indexeszoom.png)
-![](~/projects/hpi_research/papers/hpi_comp/figures/subm_indexes.png)
-
-### Volatility
-![](~/projects/hpi_research/papers/hpi_comp/figures/trend_comparison.png)
-
-![](~/projects/hpi_research/papers/hpi_comp/figures/trend_subm_comparison.png)
-
-![](~/projects/hpi_research/papers/hpi_comp/figures/season_comparison.png)
-![](~/projects/hpi_research/papers/hpi_comp/figures/vol_comparison.png)
-
-### Concept of a Series
-
-### Revision
-
-![](~/projects/hpi_research/papers/hpi_comp/figures/rev_comparison.png)
-
-### Accuracy (two kinds)
-
-![](~/projects/hpi_research/papers/hpi_comp/figures/predacc_comparison.png)
-![](~/projects/hpi_research/papers/hpi_comp/figures/asterror_comparison.png)
+<!-- To the extent that samples differ between what sells and what exists, the choice of HPI method should be driven -->
+<!-- by the question you are attemping to answer -->
 
 
-![](~/projects/hpi_research/papers/hpi_comp/figures/error_comparison.png)
+<!-- Continuum -->
 
-## Robustness checks
+<!-- * Pure observed sold price changes -- Agg -->
+<!-- * Observed with controls -- $ normalized by some sample features (ex. PPSF) -->
 
-### Time 5 and 20 year indices
+<!-- * All homes that sold twice -- RT -->
+<!--   -- Also looks to control for possible unobserved features in the data -->
 
-### Space Submarkets and Areas
+<!-- * All homes that sold  -->
+<!--   -- In the respective periods:  Hed Ind/Chained, NN -->
+<!--   -- During the entire time period: Hed Imp w/sales -->
 
-## Conclusion
+<!-- * All homes -- Hedonic Imputation w/Universe -->
 
-* Evaluate indexes based on your goal
-* 
+<!-- ## Lit Review -->
+
+<!--    * Taxonomy -->
+<!--    * Comparisons / Evaluations -->
+<!--           * Are they different? (Samples -- RT vs Uni...H&T) -->
+<!--           * Volatility -->
+<!--           * Robustness (Hill and Trojanek 2022) -->
+<!--           * Revisions (Silverstein 2014; VanDeMinner 2020) -->
+<!--           * Accuracy -->
+<!--             * Abs (Nagaraja) -->
+<!--             * Rel (new) -->
+
+<!-- ## Methods Tests -->
+
+<!-- ## Eval Methods -->
+
+<!-- ## Analysis -->
+
+<!-- ### Index comparison -->
+
+<!-- * Start with 10 year index comparison of the approaches.  Talk through combination of sample and algorithm on results.  -->
+
+<!-- ![](~/projects/hpi_research/papers/hpi_comp/figures/med_index.png) -->
+<!-- ![](~/projects/hpi_research/papers/hpi_comp/figures/psf_indexes.png) -->
+<!-- ![](~/projects/hpi_research/papers/hpi_comp/figures/tme_indexes.png) -->
+<!-- ![](~/projects/hpi_research/papers/hpi_comp/figures/imp_indexes.png) -->
+<!-- ![](~/projects/hpi_research/papers/hpi_comp/figures/all_indexes.png) -->
+<!-- ![](~/projects/hpi_research/papers/hpi_comp/figures/all_indexeszoom.png) -->
+<!-- ![](~/projects/hpi_research/papers/hpi_comp/figures/subm_indexes.png) -->
+
+<!-- ### Volatility -->
+<!-- ![](~/projects/hpi_research/papers/hpi_comp/figures/trend_comparison.png) -->
+
+<!-- ![](~/projects/hpi_research/papers/hpi_comp/figures/trend_subm_comparison.png) -->
+
+<!-- ![](~/projects/hpi_research/papers/hpi_comp/figures/season_comparison.png) -->
+<!-- ![](~/projects/hpi_research/papers/hpi_comp/figures/vol_comparison.png) -->
+
+<!-- ### Concept of a Series -->
+
+<!-- ### Revision -->
+
+<!-- ![](~/projects/hpi_research/papers/hpi_comp/figures/rev_comparison.png) -->
+
+<!-- ### Accuracy (two kinds) -->
+
+<!-- ![](~/projects/hpi_research/papers/hpi_comp/figures/predacc_comparison.png) -->
+<!-- ![](~/projects/hpi_research/papers/hpi_comp/figures/asterror_comparison.png) -->
+
+
+<!-- ![](~/projects/hpi_research/papers/hpi_comp/figures/error_comparison.png) -->
+
+<!-- ## Robustness checks -->
+
+<!-- ### Time 5 and 20 year indices -->
+
+<!-- ### Space Submarkets and Areas -->
+
+<!-- ## Conclusion -->
+
+<!-- * Evaluate indexes based on your goal -->
+<!-- *  -->
 
 Cleveland, R. B., Cleveland, W. S., McRae, J. E., & Terpenning, I. J. (1990). STL: A seasonal-trend decomposition procedure based on loess. Journal of Official Statistics, 6(1), 3–33. http://bit.ly/stl1990
